@@ -1,0 +1,2 @@
+# kromer
+THIS DISCORD BOT IS SO GOOD YOU WILL [Die]!!!
