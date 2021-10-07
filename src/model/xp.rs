@@ -4,6 +4,8 @@ use super::Error;
 
 use sqlx::{Executor, FromRow, sqlite::Sqlite};
 
+use twilight_model::id::{UserId, GuildId};
+
 /// A user's experience.
 #[derive(Debug, FromRow)]
 pub struct User {
@@ -14,13 +16,13 @@ pub struct User {
 
 impl User {
     /// The id of the guild this record reflects.
-    pub fn guild_id(&self) -> i64 {
-        self.guild_id
+    pub fn guild_id(&self) -> GuildId {
+        GuildId(self.guild_id as u64)
     }
 
     /// The id of the user.
-    pub fn user_id(&self) -> i64 {
-        self.user_id
+    pub fn user_id(&self) -> UserId {
+        UserId(self.user_id as u64)
     }
 
     /// How much experience the user has.
@@ -36,13 +38,16 @@ impl User {
     /// Gives (or takes away) some experience to a user.
     pub async fn add_score<'a, E>(
         ex: E, 
-        guild_id: i64, 
-        user_id: i64, 
+        guild_id: GuildId, 
+        user_id: UserId, 
         score: i32
     ) -> Result<(), Error>
     where
         E: Executor<'a, Database = Sqlite> + Clone
     {
+        let guild_id = guild_id.0 as i64;
+        let user_id = user_id.0 as i64;
+
         let res = sqlx::query(
             r#"
             UPDATE xp 
@@ -80,12 +85,15 @@ impl User {
     /// If a row doesn't exist, it will return a `User` with zero xp.
     pub async fn get<'a, E>(
         ex: E, 
-        guild_id: i64,
-        user_id: i64, 
+        guild_id: GuildId,
+        user_id: UserId, 
     ) -> Result<User, Error> 
     where
         E: Executor<'a, Database = Sqlite>
     {
+        let guild_id = guild_id.0 as i64;
+        let user_id = user_id.0 as i64;
+
         sqlx::query_as("SELECT * FROM xp WHERE guild_id = $1 AND user_id = $2")
             .bind(guild_id)
             .bind(user_id)
