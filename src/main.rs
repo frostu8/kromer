@@ -1,11 +1,11 @@
-use log::{error, info, LevelFilter};
+use log::LevelFilter;
 
 use std::error::Error;
 use std::env;
 
-use tokio_stream::StreamExt;
+use kromer::services::Services;
 
-use twilight_gateway::{cluster::{Cluster, ShardScheme}, Event};
+use twilight_gateway::cluster::{Cluster, ShardScheme};
 use twilight_model::gateway::Intents;
 
 #[tokio::main]
@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     kromer::model::migrate(&db).await?;
 
     // throw up a cluster
-    let (cluster, mut events) = Cluster::builder(token.clone(), Intents::GUILD_MESSAGES)
+    let (cluster, events) = Cluster::builder(token.clone(), Intents::GUILD_MESSAGES)
         .shard_scheme(ShardScheme::Auto)
         .build()
         .await?;
@@ -41,27 +41,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         cluster_spawn.up().await;
     });
 
-    // create our services
-    let xp = kromer::services::Xp::new(db.clone());
-
-    // process each event
-    while let Some((shard_id, ev)) = events.next().await {
-        let xp = xp.clone();
-
-        tokio::spawn(async move {
-            match ev {
-                Event::MessageCreate(msg) => {
-                    if let Err(err) = xp.handle_message(&msg).await {
-                        error!("error while handling xp: {}", err);
-                    }
-                }
-                Event::ShardConnected(_) => {
-                    info!("shard #{} connected", shard_id);
-                }
-                _ => ()
-            }
-        });
-    }
+    // create and run our services
+    Services::new()
+        .add(kromer::services::Xp::new(db.clone()))
+        .run(events)
+        .await;
 
     Ok(())
 }

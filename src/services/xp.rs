@@ -4,7 +4,10 @@ use sqlx::sqlite::SqlitePool;
 
 use crate::model::xp::User;
 
+use super::{Error, Service, ServiceFuture};
+
 use twilight_model::channel::Message;
+use twilight_model::gateway::event::Event;
 
 #[derive(Clone)]
 pub struct Xp {
@@ -19,7 +22,7 @@ impl Xp {
     }
 
     /// Handles a message.
-    pub async fn handle_message(&self, msg: &Message) -> Result<(), super::Error> {
+    pub async fn handle_message(&self, msg: &Message) -> Result<(), Error> {
         // check if the message was sent in a guild
         let guild_id = match msg.guild_id {
             Some(guild_id) => guild_id,
@@ -39,6 +42,22 @@ impl Xp {
             .await?;
 
         Ok(())
+    }
+}
+
+impl Service for Xp {
+    /// Handles an event.
+    fn handle<'f>(&'f self, ev: &'f Event) -> ServiceFuture<'f> {
+        Box::pin(async move {
+            match ev {
+                Event::MessageCreate(msg) => {
+                    if let Err(e) = self.handle_message(msg).await {
+                        error!("{}", e);
+                    }
+                }
+                _ => ()
+            }
+        })
     }
 }
 
