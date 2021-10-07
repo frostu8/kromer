@@ -1,8 +1,6 @@
 //! The different, independent components of the Kromer ecosystem.
 
-mod xp;
-
-pub use xp::Xp;
+pub mod xp;
 
 pub use anyhow::Error;
 
@@ -26,6 +24,7 @@ pub trait Service {
 }
 
 /// Two services types executed one after the other.
+#[derive(Clone)]
 pub struct Cons<T, U>(T, U);
 
 impl<T, U> Service for Cons<T, U> 

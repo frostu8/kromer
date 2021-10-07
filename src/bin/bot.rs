@@ -1,15 +1,15 @@
 use log::LevelFilter;
 
-use std::error::Error;
 use std::env;
 
 use kromer::services::Services;
 
 use twilight_gateway::cluster::{Cluster, ShardScheme};
 use twilight_model::gateway::Intents;
+use twilight_http::Client;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+async fn main() -> Result<(), anyhow::Error> {
     dotenv::dotenv()?;
 
     env_logger::Builder::new()
@@ -28,6 +28,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // run migrations
     kromer::model::migrate(&db).await?;
 
+    // get an http client
+    let client = Client::new(token.clone());
+
     // throw up a cluster
     let (cluster, events) = Cluster::builder(token.clone(), Intents::GUILD_MESSAGES)
         .shard_scheme(ShardScheme::Auto)
@@ -43,7 +46,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // create and run our services
     Services::new()
-        .add(kromer::services::Xp::new(db.clone()))
+        .add(kromer::services::xp::Xp::new(db.clone()))
+        .add(kromer::services::xp::RankCommand::new(db.clone(), client.clone()))
         .run(events)
         .await;
 

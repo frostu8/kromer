@@ -5,6 +5,7 @@ authors = ["Dante Helmore <frostu8@protonmail.com>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+default-run = "bot"
 
 [dependencies]
 twilight-model = "0.6"
@@ -17,6 +18,8 @@ dotenv = "0.15"
 
 log = "0.4"
 env_logger = "0.9"
+
+structopt = "0.3"
 
 tokio-stream = "0.1"
 
