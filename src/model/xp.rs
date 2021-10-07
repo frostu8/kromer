@@ -2,27 +2,25 @@
 
 use super::Error;
 
-use sqlx::{Executor, Row, sqlite::Sqlite};
-
-use twilight_model::id::{GuildId, UserId};
+use sqlx::{Executor, FromRow, sqlite::Sqlite};
 
 /// A user's experience.
-#[derive(Debug)]
+#[derive(Debug, FromRow)]
 pub struct User {
-    guild_id: u64,
-    user_id: u64,
+    guild_id: i64,
+    user_id: i64,
     score: i32,
 }
 
 impl User {
     /// The id of the guild this record reflects.
-    pub fn guild_id(&self) -> GuildId {
-        GuildId(self.guild_id)
+    pub fn guild_id(&self) -> i64 {
+        self.guild_id
     }
 
     /// The id of the user.
-    pub fn user_id(&self) -> UserId {
-        UserId(self.user_id)
+    pub fn user_id(&self) -> i64 {
+        self.user_id
     }
 
     /// How much experience the user has.
@@ -38,8 +36,8 @@ impl User {
     /// Gives (or takes away) some experience to a user.
     pub async fn add_score<'a, E>(
         ex: E, 
-        guild_id: u64, 
-        user_id: u64, 
+        guild_id: i64, 
+        user_id: i64, 
         score: i32
     ) -> Result<(), Error>
     where
@@ -52,8 +50,8 @@ impl User {
             WHERE guild_id = $1 AND user_id = $2
             "#
         )
-            .bind(guild_id as i64)
-            .bind(user_id as i64)
+            .bind(guild_id)
+            .bind(user_id)
             .bind(score)
             .execute(ex.clone())
             .await?;
@@ -67,8 +65,8 @@ impl User {
                 VALUES ($1, $2, $3)
                 "#
             )
-                .bind(guild_id as i64)
-                .bind(user_id as i64)
+                .bind(guild_id)
+                .bind(user_id)
                 .bind(score)
                 .execute(ex)
                 .await?;
@@ -82,31 +80,22 @@ impl User {
     /// If a row doesn't exist, it will return a `User` with zero xp.
     pub async fn get<'a, E>(
         ex: E, 
-        guild_id: u64,
-        user_id: u64, 
+        guild_id: i64,
+        user_id: i64, 
     ) -> Result<User, Error> 
     where
         E: Executor<'a, Database = Sqlite>
     {
-        sqlx::query("SELECT * FROM xp WHERE guild_id = $1 AND user_id = $2")
-            .bind(guild_id as i64)
-            .bind(user_id as i64)
+        sqlx::query_as("SELECT * FROM xp WHERE guild_id = $1 AND user_id = $2")
+            .bind(guild_id)
+            .bind(user_id)
             .fetch_optional(ex)
             .await
-            .and_then(|row| match row {
-                Some(row) => {
-                    Ok(User {
-                        guild_id: row.try_get::<i64, _>("guild_id")? as u64,
-                        user_id: row.try_get::<i64, _>("user_id")? as u64,
-                        score: row.try_get("score")?,
-                    })
-                }
-                None => Ok(User {
-                    user_id,
-                    guild_id,
-                    score: 0,
-                })
-            })
+            .map(|user| user.unwrap_or(User {
+                user_id,
+                guild_id,
+                score: 0,
+            }))
     }
 }
 

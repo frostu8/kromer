@@ -47,8 +47,8 @@ impl Xp {
         // add experience to the user
         User::add_score(
             &self.db,
-            guild_id.0,
-            user_id.0,
+            guild_id.0 as i64,
+            user_id.0 as i64,
             1,
         )
             .await?;
@@ -130,7 +130,7 @@ impl RankCommand {
             })?;
 
         // finally.... finally... find the exp for the specified user
-        let user = User::get(&self.db, guild_id.0, user_id.0).await?;
+        let user = User::get(&self.db, guild_id.0 as i64, user_id.0 as i64).await?;
 
         // create a response
         let content = format!("user <@{}> is level {} with {} exp", user_id, user.level(), user.score());
