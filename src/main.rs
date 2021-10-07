@@ -25,6 +25,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // connect to the database
     let db = sqlx::SqlitePool::connect(&database).await?;
 
+    // run migrations
+    kromer::model::migrate(&db).await?;
+
     // throw up a cluster
     let (cluster, mut events) = Cluster::builder(token.clone(), Intents::GUILD_MESSAGES)
         .shard_scheme(ShardScheme::Auto)

@@ -38,12 +38,6 @@ impl Xp {
         )
             .await?;
 
-        // FOR TESTING
-        // get the user's score
-        let user = User::get(&self.db, guild_id.0, user_id.0).await?;
-
-        log::info!("user is now level {}", user.level());
-
         Ok(())
     }
 }
