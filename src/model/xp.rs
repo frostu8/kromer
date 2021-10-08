@@ -2,19 +2,19 @@
 
 use super::Error;
 
-use sqlx::{Executor, FromRow, sqlite::Sqlite};
+use sqlx::{Executor, FromRow, postgres::Postgres};
 
 use twilight_model::id::{UserId, GuildId};
 
 /// A user's experience.
 #[derive(Debug, FromRow)]
-pub struct User {
+pub struct Record {
     guild_id: i64,
     user_id: i64,
     score: i32,
 }
 
-impl User {
+impl Record {
     /// The id of the guild this record reflects.
     pub fn guild_id(&self) -> GuildId {
         GuildId(self.guild_id as u64)
@@ -43,7 +43,7 @@ impl User {
         score: i32
     ) -> Result<(), Error>
     where
-        E: Executor<'a, Database = Sqlite> + Clone
+        E: Executor<'a, Database = Postgres> + Clone
     {
         let guild_id = guild_id.0 as i64;
         let user_id = user_id.0 as i64;
@@ -87,9 +87,9 @@ impl User {
         ex: E, 
         guild_id: GuildId,
         user_id: UserId, 
-    ) -> Result<User, Error> 
+    ) -> Result<Record, Error> 
     where
-        E: Executor<'a, Database = Sqlite>
+        E: Executor<'a, Database = Postgres>
     {
         let guild_id = guild_id.0 as i64;
         let user_id = user_id.0 as i64;
@@ -99,7 +99,7 @@ impl User {
             .bind(user_id)
             .fetch_optional(ex)
             .await
-            .map(|user| user.unwrap_or(User {
+            .map(|user| user.unwrap_or(Record {
                 user_id,
                 guild_id,
                 score: 0,

@@ -23,7 +23,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let database = env::var("DATABASE_URL")?;
 
     // connect to the database
-    let db = sqlx::SqlitePool::connect(&database).await?;
+    let db = sqlx::PgPool::connect(&database).await?;
 
     // run migrations
     kromer::model::migrate(&db).await?;

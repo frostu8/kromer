@@ -1,8 +1,8 @@
 //! Diminishing "experience" tracking services.
 
-use sqlx::sqlite::SqlitePool;
+use sqlx::postgres::PgPool;
 
-use crate::model::xp::User;
+use crate::model::xp::Record;
 
 use std::time::{Instant, Duration};
 use std::sync::Arc;
@@ -28,12 +28,12 @@ use anyhow::anyhow;
 /// Experience awarding service.
 #[derive(Clone)]
 pub struct Xp {
-    db: SqlitePool,
+    db: PgPool,
     cooldowns: Cooldowns,
 }
 
 impl Xp {
-    pub fn new(db: SqlitePool) -> Xp {
+    pub fn new(db: PgPool) -> Xp {
         Xp {
             db,
             cooldowns: Cooldowns::new(),
@@ -55,7 +55,7 @@ impl Xp {
         let exp = self.cooldowns.update(guild_id, user_id);
 
         // add experience to the user
-        User::add_score(&self.db, guild_id, user_id, exp).await?;
+        Record::add_score(&self.db, guild_id, user_id, exp).await?;
 
         Ok(())
     }
@@ -127,12 +127,12 @@ fn exp(duration: Duration) -> i32 {
 /// ```
 #[derive(Clone)]
 pub struct RankCommand {
-    db: SqlitePool,
+    db: PgPool,
     client: Client,
 }
 
 impl RankCommand {
-    pub fn new(db: SqlitePool, client: Client) -> RankCommand {
+    pub fn new(db: PgPool, client: Client) -> RankCommand {
         RankCommand { db, client }
     }
 
@@ -176,7 +176,7 @@ impl RankCommand {
             })?;
 
         // finally.... finally... find the exp for the specified user
-        let user = User::get(&self.db, guild_id, user_id).await?;
+        let user = Record::get(&self.db, guild_id, user_id).await?;
 
         // create a response
         let content = format!("user <@{}> is level {} with {} exp", user_id, user.level(), user.score());

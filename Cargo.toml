@@ -26,7 +26,7 @@ tokio-stream = "0.1"
 
 [dependencies.sqlx]
 version = "0.5"
-features = ["sqlite", "runtime-tokio-rustls"]
+features = ["postgres", "runtime-tokio-rustls"]
 
 [dependencies.tokio]
 version = "1"
