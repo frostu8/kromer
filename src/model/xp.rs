@@ -34,18 +34,54 @@ impl Record {
     pub fn level(&self) -> i32 {
         level(self.score)
     }
+}
+
+/// A group of records attached to a certain guild.
+pub struct Guild(i64);
+
+impl Guild {
+    /// Create a new `Guild` reference.
+    ///
+    /// This does nothing until operations are made to it.
+    pub fn new(id: GuildId) -> Guild {
+        Guild(id.0 as i64)
+    }
+
+    /// Gets a user's experience level.
+    ///
+    /// If a row doesn't exist, it will return a `User` with zero xp.
+    pub async fn get<'a, E>(
+        &self,
+        ex: E, 
+        user_id: UserId, 
+    ) -> Result<Record, Error> 
+    where
+        E: Executor<'a, Database = Postgres>
+    {
+        let user_id = user_id.0 as i64;
+
+        sqlx::query_as("SELECT * FROM xp WHERE guild_id = $1 AND user_id = $2")
+            .bind(self.0)
+            .bind(user_id)
+            .fetch_optional(ex)
+            .await
+            .map(|user| user.unwrap_or(Record {
+                guild_id: self.0,
+                user_id,
+                score: 0,
+            }))
+    }
 
     /// Gives (or takes away) some experience to a user.
-    pub async fn add_score<'a, E>(
+    pub async fn add<'a, E>(
+        &self,
         ex: E, 
-        guild_id: GuildId, 
         user_id: UserId, 
         score: i32
     ) -> Result<(), Error>
     where
         E: Executor<'a, Database = Postgres> + Clone
     {
-        let guild_id = guild_id.0 as i64;
         let user_id = user_id.0 as i64;
 
         let res = sqlx::query(
@@ -55,7 +91,7 @@ impl Record {
             WHERE guild_id = $1 AND user_id = $2
             "#
         )
-            .bind(guild_id)
+            .bind(self.0)
             .bind(user_id)
             .bind(score)
             .execute(ex.clone())
@@ -70,7 +106,7 @@ impl Record {
                 VALUES ($1, $2, $3)
                 "#
             )
-                .bind(guild_id)
+                .bind(self.0)
                 .bind(user_id)
                 .bind(score)
                 .execute(ex)
@@ -78,32 +114,6 @@ impl Record {
         }
 
         Ok(())
-    }
-
-    /// Gets a user's experience level.
-    ///
-    /// If a row doesn't exist, it will return a `User` with zero xp.
-    pub async fn get<'a, E>(
-        ex: E, 
-        guild_id: GuildId,
-        user_id: UserId, 
-    ) -> Result<Record, Error> 
-    where
-        E: Executor<'a, Database = Postgres>
-    {
-        let guild_id = guild_id.0 as i64;
-        let user_id = user_id.0 as i64;
-
-        sqlx::query_as("SELECT * FROM xp WHERE guild_id = $1 AND user_id = $2")
-            .bind(guild_id)
-            .bind(user_id)
-            .fetch_optional(ex)
-            .await
-            .map(|user| user.unwrap_or(Record {
-                user_id,
-                guild_id,
-                score: 0,
-            }))
     }
 }
 

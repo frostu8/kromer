@@ -2,7 +2,7 @@
 
 use sqlx::postgres::PgPool;
 
-use crate::model::xp::Record;
+use crate::model::xp::Guild;
 
 use std::time::{Instant, Duration};
 use std::sync::Arc;
@@ -55,7 +55,7 @@ impl Xp {
         let exp = self.cooldowns.update(guild_id, user_id);
 
         // add experience to the user
-        Record::add_score(&self.db, guild_id, user_id, exp).await?;
+        Guild::new(guild_id).add(&self.db, user_id, exp).await?;
 
         Ok(())
     }
@@ -176,7 +176,7 @@ impl RankCommand {
             })?;
 
         // finally.... finally... find the exp for the specified user
-        let user = Record::get(&self.db, guild_id, user_id).await?;
+        let user = Guild::new(guild_id).get(&self.db, user_id).await?;
 
         // create a response
         let content = format!("user <@{}> is level {} with {} exp", user_id, user.level(), user.score());
