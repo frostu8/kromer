@@ -4,11 +4,16 @@ use sqlx::sqlite::SqlitePool;
 
 use crate::model::xp::User;
 
+use std::time::{Instant, Duration};
+use std::sync::Arc;
+
+use dashmap::DashMap;
+
 use super::{Error, Service, ServiceFuture};
 
 use twilight_model::channel::message::{Message, allowed_mentions::AllowedMentions};
 use twilight_model::gateway::event::Event;
-use twilight_model::id::UserId;
+use twilight_model::id::{GuildId, UserId};
 use twilight_model::application::{
     callback::{InteractionResponse, CallbackData},
     interaction::{
@@ -24,12 +29,14 @@ use anyhow::anyhow;
 #[derive(Clone)]
 pub struct Xp {
     db: SqlitePool,
+    cooldowns: Cooldowns,
 }
 
 impl Xp {
     pub fn new(db: SqlitePool) -> Xp {
         Xp {
             db,
+            cooldowns: Cooldowns::new(),
         }
     }
 
@@ -44,14 +51,11 @@ impl Xp {
 
         let user_id = msg.author.id;
 
+        // figure out how much exp to award to the user
+        let exp = self.cooldowns.update(guild_id, user_id);
+
         // add experience to the user
-        User::add_score(
-            &self.db,
-            guild_id,
-            user_id,
-            1,
-        )
-            .await?;
+        User::add_score(&self.db, guild_id, user_id, exp).await?;
 
         Ok(())
     }
@@ -71,6 +75,48 @@ impl Service for Xp {
             }
         })
     }
+}
+
+/// Maximum experience a user can be awarded at once.
+pub const MAX_EXP: i32 = 15;
+
+/// A table of cooldowns.
+#[derive(Clone, Default)]
+pub struct Cooldowns(Arc<DashMap<CooldownIndex, Instant>>);
+
+impl Cooldowns {
+    /// Create a new `Cooldowns`.
+    pub fn new() -> Cooldowns {
+        Cooldowns::default()
+    }
+
+    /// Updates a [`Cooldown`] in the cooldowns table, returning a good amount
+    /// of exp to reward.
+    pub fn update(&self, guild_id: GuildId, user_id: UserId) -> i32 {
+        let idx = CooldownIndex(guild_id, user_id);
+        let now = Instant::now();
+
+        // swap instants
+        match self.0.insert(idx, now) {
+            Some(old) => match now.checked_duration_since(old) {
+                Some(duration) => exp(duration),
+                // this should not happen, but just in case.
+                None => 0,
+            }
+            None => MAX_EXP
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+struct CooldownIndex(GuildId, UserId);
+
+fn exp(duration: Duration) -> i32 {
+    // get exp from duration
+    let exp = duration.as_secs() as i32;
+
+    // clamp exp
+    exp.min(MAX_EXP)
 }
 
 /// Service that enables the `/rank` command.

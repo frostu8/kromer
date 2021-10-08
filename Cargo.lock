@@ -597,6 +597,7 @@ name = "kromer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "dashmap",
  "dotenv",
  "env_logger",
  "log",

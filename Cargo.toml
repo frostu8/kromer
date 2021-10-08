@@ -15,6 +15,7 @@ twilight-cache-inmemory = "0.6"
 
 anyhow = "1"
 dotenv = "0.15"
+dashmap = "4"
 
 log = "0.4"
 env_logger = "0.9"
