@@ -142,25 +142,10 @@ impl RankCommand {
         RankCommand { db, client }
     }
 
-    async fn handle_interaction(&self, int: &Interaction) -> Result<(), Error> {
-        // only handle commands
-        let command = match int {
-            Interaction::ApplicationCommand(command) => command,
-            // ignore any other interactions
-            _ => return Ok(()),
-        };
-
-        // figure out what command this is
-        match command.data.name.as_str() {
-            "rank" => self.rank_command(command).await,
-            _ => Ok(()),
-        }
-    }
-
-    async fn rank_command(&self, command: &ApplicationCommand) -> Result<(), Error> {
-        // get guild id and role id
+    async fn command(&self, command: &ApplicationCommand) -> Result<(), Error> {
+        // get guild id
         let guild_id = command.guild_id
-            .ok_or(anyhow!("guild_id is missing for /rank"))?;
+            .ok_or(anyhow!("guild_id is missing"))?;
 
         // get the user_id
         let user_id = command.data.options
@@ -185,7 +170,12 @@ impl RankCommand {
         let user = Guild::new(guild_id).get(&self.db, user_id).await?;
 
         // create a response
-        let content = format!("user <@{}> is level {} with {} exp", user_id, user.level(), user.score());
+        let content = format!(
+            "user <@{}> is level {} with {}KR", 
+            user_id, 
+            user.level(), 
+            user.score(),
+        );
 
         let response = CallbackData {
             content: Some(content),
@@ -212,10 +202,15 @@ impl Service for RankCommand {
     fn handle<'f>(&'f self, ev: &'f Event) -> ServiceFuture<'f> {
         Box::pin(async move {
             match ev {
-                Event::InteractionCreate(int) => {
-                    if let Err(e) = self.handle_interaction(int).await {
-                        error!("{}", e);
+                Event::InteractionCreate(int) => match &int.0 {
+                    Interaction::ApplicationCommand(cmd) => {
+                        if cmd.data.name.as_str() == "rank" {
+                            if let Err(err) = self.command(&*cmd).await {
+                                error!("error /rank: {}", err);
+                            }
+                        }
                     }
+                    _ => ()
                 }
                 _ => ()
             }
