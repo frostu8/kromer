@@ -47,6 +47,33 @@ impl Guild {
         Guild(id.0 as i64)
     }
 
+    /// Gets the top `count` users in the guild.
+    pub async fn top<'a, E>(
+        &self,
+        ex: E,
+        count: u64,
+        page: u64,
+    ) -> Result<Vec<Record>, Error>
+    where
+        E: Executor<'a, Database = Postgres>
+    {
+        let count = count as i64;
+        let offset = count * (page as i64);
+
+        sqlx::query_as(
+            r#"
+            SELECT * FROM xp WHERE guild_id = $1
+            ORDER BY score DESC
+            LIMIT $2 OFFSET $3
+            "#
+        )
+            .bind(self.0)
+            .bind(count)
+            .bind(offset)
+            .fetch_all(ex)
+            .await
+    }
+
     /// Gets a user's experience level.
     ///
     /// If a row doesn't exist, it will return a `User` with zero xp.

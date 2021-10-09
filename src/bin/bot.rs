@@ -5,8 +5,9 @@ use std::env;
 use kromer::services::Services;
 
 use twilight_gateway::cluster::{Cluster, ShardScheme};
+use twilight_model::id::ApplicationId;
 use twilight_model::gateway::Intents;
-use twilight_http::Client;
+use twilight_http::client::ClientBuilder;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -20,6 +21,7 @@ async fn main() -> Result<(), anyhow::Error> {
         .init();
 
     let token = env::var("DISCORD_TOKEN")?;
+    let application_id = env::var("DISCORD_APPLICATION_ID")?.parse::<u64>()?;
     let database = env::var("DATABASE_URL")?;
 
     // connect to the database
@@ -29,7 +31,10 @@ async fn main() -> Result<(), anyhow::Error> {
     kromer::model::migrate(&db).await?;
 
     // get an http client
-    let client = Client::new(token.clone());
+    let client = ClientBuilder::new()
+        .token(env::var("DISCORD_TOKEN")?)
+        .application_id(ApplicationId(application_id))
+        .build();
 
     // throw up a cluster
     let (cluster, events) = Cluster::builder(token.clone(), Intents::GUILD_MESSAGES)
@@ -48,6 +53,7 @@ async fn main() -> Result<(), anyhow::Error> {
     Services::new()
         .add(kromer::services::xp::Xp::new(db.clone()))
         .add(kromer::services::xp::RankCommand::new(db.clone(), client.clone()))
+        .add(kromer::services::xp::TopCommand::new(db.clone(), client.clone()))
         .run(events)
         .await;
 

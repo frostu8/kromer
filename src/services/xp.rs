@@ -2,10 +2,11 @@
 
 use sqlx::postgres::PgPool;
 
-use crate::model::xp::Guild;
+use crate::model::xp::{Guild, Record};
 
 use std::time::{Instant, Duration};
 use std::sync::Arc;
+use std::fmt::Write;
 
 use dashmap::DashMap;
 
@@ -42,6 +43,11 @@ impl Xp {
 
     /// Handles a message.
     pub async fn handle_message(&self, msg: &Message) -> Result<(), Error> {
+        // do not track bot messages
+        if msg.author.bot {
+            return Ok(());
+        }
+
         // check if the message was sent in a guild
         let guild_id = match msg.guild_id {
             Some(guild_id) => guild_id,
@@ -214,6 +220,103 @@ impl Service for RankCommand {
                 _ => ()
             }
         })
+    }
+}
+
+/// Returns the exp leaders of a guild.
+#[derive(Clone)]
+pub struct TopCommand {
+    db: PgPool,
+    client: Client,
+}
+
+impl TopCommand {
+    pub fn new(db: PgPool, client: Client) -> TopCommand {
+        TopCommand { db, client }
+    }
+
+    async fn command(&self, command: &ApplicationCommand) -> Result<(), Error> {
+        // get guild id and role id
+        let guild_id = command.guild_id
+            .ok_or(anyhow!("guild_id is missing"))?;
+
+        // get the top listing
+        let top = Guild::new(guild_id).top(&self.db, 10, 0).await?;
+
+        // create a response
+        let content = create_top_message(&top);
+
+        let response = CallbackData {
+            content: Some(content),
+            allowed_mentions: Some(AllowedMentions::default()),
+            components: None,
+            embeds: Vec::new(),
+            flags: None,
+            tts: None,
+        };
+
+        let response = InteractionResponse::ChannelMessageWithSource(response);
+
+        self.client
+            .interaction_callback(command.id, &command.token, &response)
+            .exec()
+            .await?;
+
+        Ok(())
+    }
+}
+
+impl Service for TopCommand {
+    /// Handles an event.
+    fn handle<'f>(&'f self, ev: &'f Event) -> ServiceFuture<'f> {
+        Box::pin(async move {
+            match ev {
+                Event::InteractionCreate(int) => match &int.0 {
+                    Interaction::ApplicationCommand(cmd) => {
+                        if cmd.data.name.as_str() == "top" {
+                            if let Err(err) = self.command(&*cmd).await {
+                                error!("error /top: {}", err);
+                            }
+                        }
+                    }
+                    _ => ()
+                }
+                _ => ()
+            }
+        })
+    }
+}
+
+fn create_top_message(top: &[Record]) -> String {
+    if top.len() > 0 {
+        let mut content = String::new();
+
+        for (i, record) in top.into_iter().enumerate() {
+            if i > 0 { content.push('\n') }
+
+            write!(
+                content, 
+                "{} {}KR > <@{}> ", 
+                top_emoji(i), 
+                record.score(), 
+                record.user_id()
+            )
+                .unwrap();
+        }
+
+        content
+    } else {
+        // fallback in case there is no records
+        String::from("NO MEMBERS HAVE SPOKEN SINCE I JOINED!!!")
+    }
+}
+
+fn top_emoji(idx: usize) -> char {
+    match idx {
+        0 => '🥇',
+        1 => '🥈',
+        2 => '🥉',
+        _ => '💴',
     }
 }
 

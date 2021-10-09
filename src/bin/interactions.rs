@@ -16,9 +16,6 @@ struct Opt {
     /// The guild to apply the commands to.
     #[structopt(long)]
     guild: u64,
-    /// The id of the application.
-    #[structopt(short = "a")]
-    application_id: u64,
 }
 
 #[tokio::main]
@@ -36,7 +33,7 @@ async fn main() -> Result<(), anyhow::Error> {
     // create a client
     let client = ClientBuilder::new()
         .token(env::var("DISCORD_TOKEN")?)
-        .application_id(ApplicationId(opt.application_id))
+        .application_id(ApplicationId(env::var("DISCORD_APPLICATION_ID")?.parse::<u64>()?))
         .build();
 
     client
@@ -49,6 +46,12 @@ async fn main() -> Result<(), anyhow::Error> {
                 required: false,
             })
         ])?
+        .exec()
+        .await?;
+
+    client
+        .new_create_guild_command(GuildId(opt.guild), "top")?
+        .chat_input("Gets all of the top members of a guild.")?
         .exec()
         .await?;
 
