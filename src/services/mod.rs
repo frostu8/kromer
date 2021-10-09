@@ -80,7 +80,10 @@ where
             // print status info
             match ev {
                 Event::ShardConnected(_) => {
-                    info!("SHARD [#{}] CONNECTED.", shard_id);
+                    info!("shard #{} connected", shard_id);
+                }
+                Event::ShardDisconnected(_) => {
+                    info!("shard #{} disconnected", shard_id);
                 }
                 _ => ()
             }
