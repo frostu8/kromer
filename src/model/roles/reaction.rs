@@ -9,6 +9,7 @@ use std::fmt::{self, Display, Formatter};
 use twilight_model::id::{ChannelId, GuildId, MessageId, RoleId};
 
 #[derive(FromRow)]
+#[allow(dead_code)]
 pub struct ReactionRole {
     guild_id: i64,
     message_id: i64,
