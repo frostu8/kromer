@@ -103,7 +103,7 @@ macro_rules! impl_service {
         }
 
         impl<'f> Service<'f> for $ty {
-            type Future = impl Future<Output = ()> + 'f;
+            type Future = impl ::std::future::Future<Output = ()> + 'f;
 
             fn handle(&'f self, ev: &'f crate::service::Event) -> Self::Future {
                 async move {

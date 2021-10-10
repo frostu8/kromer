@@ -7,8 +7,6 @@ use crate::impl_service;
 
 use sqlx::postgres::PgPool;
 
-use std::future::Future;
-
 use twilight_http::api_error::{ApiError, ErrorCode};
 use twilight_http::request::AuditLogReason;
 use twilight_http::Client;

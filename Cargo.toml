@@ -5,6 +5,7 @@ authors = ["Dante Helmore <frostu8@protonmail.com>"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+build = "src/build.rs"
 
 [dependencies]
 twilight-model = "0.6"

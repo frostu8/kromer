@@ -157,6 +157,7 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
             db.clone(),
             client.clone(),
         ))
+        .add(bot::info::InfoCommand::new(client.clone()))
         .run(events)
         .await;
 
@@ -201,6 +202,14 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
     client
         .new_create_guild_command(guild_id, "top")?
         .chat_input("returns the leading 10 members of the guild in KR balance")?
+        .exec()
+        .await?;
+
+    info!("migrating {}...", highlight.paint("/info"));
+
+    client
+        .new_create_guild_command(guild_id, "info")?
+        .chat_input("returns info about the bot currently running")?
         .exec()
         .await?;
 

@@ -12,3 +12,15 @@ pub mod service;
 
 #[macro_use]
 extern crate log;
+
+/// The cargo package version of the bot.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// The git commit hash of the bot.
+pub const GIT_HASH: &str = env!("GIT_HASH");
+
+/// The current repository mirror.
+///
+/// May or may not exist.
+pub const GIT_REPOSITORY: &str = concat!("https://github.com/frostu8/kromer/tree/", env!("GIT_HASH"));
+

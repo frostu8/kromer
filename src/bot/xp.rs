@@ -7,7 +7,6 @@ use crate::impl_service;
 use sqlx::postgres::PgPool;
 
 use std::fmt::Write;
-use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
