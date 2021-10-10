@@ -1,31 +1,27 @@
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate log;
 
 use std::env;
 
-use kromer::service::Services;
 use kromer::bot;
+use kromer::service::Services;
 
-use twilight_model::id::{ApplicationId, GuildId};
-use twilight_model::gateway::Intents;
-use twilight_model::application::command::{
-    BaseCommandOptionData, CommandOption,
-};
 use twilight_gateway::cluster::{Cluster, ShardScheme};
 use twilight_http::client::ClientBuilder;
+use twilight_model::application::command::{BaseCommandOptionData, CommandOption};
+use twilight_model::gateway::Intents;
+use twilight_model::id::{ApplicationId, GuildId};
 
+use anyhow::{anyhow, Result};
 use log::LevelFilter;
-use anyhow::{Result, anyhow};
 use tokio::runtime::Runtime;
 
-use ansi_term::{Style, Color};
+use ansi_term::{Color, Style};
 
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
-#[structopt(
-    name = "kromer",
-    about = "discord bot",
-)]
+#[structopt(name = "kromer", about = "discord bot")]
 struct Kromer {
     #[structopt(flatten)]
     options: Opt,
@@ -53,17 +49,11 @@ impl Default for Command {
 }
 
 #[derive(StructOpt)]
-#[structopt(
-    name = "run",
-    about = "runs the discord bot in the foreground",
-)]
+#[structopt(name = "run", about = "runs the discord bot in the foreground")]
 struct Run {}
 
 #[derive(StructOpt)]
-#[structopt(
-    name = "migrate",
-    about = "runs discord command migrations",
-)]
+#[structopt(name = "migrate", about = "runs discord command migrations")]
 struct Migrate {
     #[structopt(short, long)]
     /// the id of the guild to run discord migrations on
@@ -81,11 +71,9 @@ fn main() {
         .init();
 
     let opt = Kromer::from_args();
-    
+
     let res = match opt.command.unwrap_or_default() {
-        Command::Run(run) => Runtime::new()
-            .unwrap()
-            .block_on(main_run(opt.options, run)),
+        Command::Run(run) => Runtime::new().unwrap().block_on(main_run(opt.options, run)),
         Command::Migrate(migrate) => Runtime::new()
             .unwrap()
             .block_on(main_migrate(opt.options, migrate)),
@@ -134,10 +122,13 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
     info!("starting discord gateway...");
 
     // throw up a cluster
-    let cluster = Cluster::builder(token, Intents::GUILD_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS)
-        .shard_scheme(ShardScheme::Auto)
-        .build()
-        .await;
+    let cluster = Cluster::builder(
+        token,
+        Intents::GUILD_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS,
+    )
+    .shard_scheme(ShardScheme::Auto)
+    .build()
+    .await;
 
     let (cluster, events) = match cluster {
         Ok(cluster) => cluster,
@@ -162,7 +153,10 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
         .add(bot::xp::Xp::new(db.clone()))
         .add(bot::xp::RankCommand::new(db.clone(), client.clone()))
         .add(bot::xp::TopCommand::new(db.clone(), client.clone()))
-        .add(bot::roles::reaction::ReactionRoles::new(db.clone(), client.clone()))
+        .add(bot::roles::reaction::ReactionRoles::new(
+            db.clone(),
+            client.clone(),
+        ))
         .run(events)
         .await;
 
@@ -194,13 +188,11 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
     client
         .new_create_guild_command(guild_id, "rank")?
         .chat_input("returns your or another user's level and KR balance")?
-        .command_options(&[
-            CommandOption::User(BaseCommandOptionData {
-                name: String::from("user"),
-                description: String::from("the user to check"),
-                required: false,
-            })
-        ])?
+        .command_options(&[CommandOption::User(BaseCommandOptionData {
+            name: String::from("user"),
+            description: String::from("the user to check"),
+            required: false,
+        })])?
         .exec()
         .await?;
 
@@ -218,13 +210,17 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
 }
 
 fn get_database_url() -> Result<String> {
-    env::var("DATABASE_URL")
-        .map_err(|_| anyhow!("postgres database url not provided! provide DATABASE_URL in environment or .env file."))
+    env::var("DATABASE_URL").map_err(|_| {
+        anyhow!(
+            "postgres database url not provided! provide DATABASE_URL in environment or .env file."
+        )
+    })
 }
 
 fn get_discord_token() -> Result<String> {
-    env::var("DISCORD_TOKEN")
-        .map_err(|_| anyhow!("discord token missing! provide DISCORD_TOKEN in environment or .env file."))
+    env::var("DISCORD_TOKEN").map_err(|_| {
+        anyhow!("discord token missing! provide DISCORD_TOKEN in environment or .env file.")
+    })
 }
 
 fn get_application_id() -> Result<u64> {
@@ -233,4 +229,3 @@ fn get_application_id() -> Result<u64> {
         .parse::<u64>()
         .map_err(|err| anyhow!("discord application id is invalid: {}", err))
 }
-

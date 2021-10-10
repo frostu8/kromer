@@ -5,24 +5,24 @@ use crate::service::{Error, Service};
 
 use sqlx::postgres::PgPool;
 
-use std::time::{Instant, Duration};
+use std::fmt::Write;
 use std::future::Future;
 use std::sync::Arc;
-use std::fmt::Write;
+use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
 
-use twilight_model::channel::message::{Message, allowed_mentions::AllowedMentions};
-use twilight_model::gateway::event::Event;
-use twilight_model::id::{GuildId, UserId};
+use twilight_http::Client;
 use twilight_model::application::{
-    callback::{InteractionResponse, CallbackData},
+    callback::{CallbackData, InteractionResponse},
     interaction::{
         application_command::{ApplicationCommand, CommandDataOption},
-        Interaction, 
+        Interaction,
     },
 };
-use twilight_http::Client;
+use twilight_model::channel::message::{allowed_mentions::AllowedMentions, Message};
+use twilight_model::gateway::event::Event;
+use twilight_model::id::{GuildId, UserId};
 
 use anyhow::anyhow;
 
@@ -78,7 +78,7 @@ impl<'f> Service<'f> for Xp {
                         error!("{}", e);
                     }
                 }
-                _ => ()
+                _ => (),
             }
         }
     }
@@ -109,8 +109,8 @@ impl Cooldowns {
                 Some(duration) => exp(duration),
                 // this should not happen, but just in case.
                 None => 0,
-            }
-            None => MAX_EXP
+            },
+            None => MAX_EXP,
         }
     }
 }
@@ -145,23 +145,24 @@ impl RankCommand {
 
     async fn command(&self, command: &ApplicationCommand) -> Result<(), Error> {
         // get guild id
-        let guild_id = command.guild_id
-            .ok_or(anyhow!("guild_id is missing"))?;
+        let guild_id = command.guild_id.ok_or(anyhow!("guild_id is missing"))?;
 
         // get the user_id
-        let user_id = command.data.options
+        let user_id = command
+            .data
+            .options
             .iter()
             .find(|option| option.name() == "user")
             .map(|user| match user {
                 CommandDataOption::String { value, .. } => {
-                    value.parse::<u64>()
-                        .map(UserId)
-                        .map_err(From::from)
+                    value.parse::<u64>().map(UserId).map_err(From::from)
                 }
                 _ => Err(anyhow!("user option is not valid type")),
             })
             .unwrap_or_else(|| {
-                command.member.as_ref()
+                command
+                    .member
+                    .as_ref()
                     .and_then(|member| member.user.as_ref())
                     .map(|user| user.id)
                     .ok_or(anyhow!("member missing for /rank"))
@@ -172,9 +173,9 @@ impl RankCommand {
 
         // create a response
         let content = format!(
-            "user <@{}> is level {} with {}KR", 
-            user_id, 
-            user.level(), 
+            "user <@{}> is level {} with {}KR",
+            user_id,
+            user.level(),
             user.score(),
         );
 
@@ -212,9 +213,9 @@ impl<'f> Service<'f> for RankCommand {
                             }
                         }
                     }
-                    _ => ()
-                }
-                _ => ()
+                    _ => (),
+                },
+                _ => (),
             }
         }
     }
@@ -234,8 +235,7 @@ impl TopCommand {
 
     async fn command(&self, command: &ApplicationCommand) -> Result<(), Error> {
         // get guild id and role id
-        let guild_id = command.guild_id
-            .ok_or(anyhow!("guild_id is missing"))?;
+        let guild_id = command.guild_id.ok_or(anyhow!("guild_id is missing"))?;
 
         // get the top listing
         let top = Guild::new(guild_id).top(&self.db, 10, 0).await?;
@@ -277,9 +277,9 @@ impl<'f> Service<'f> for TopCommand {
                             }
                         }
                     }
-                    _ => ()
-                }
-                _ => ()
+                    _ => (),
+                },
+                _ => (),
             }
         }
     }
@@ -290,16 +290,18 @@ fn create_top_message(top: &[Record]) -> String {
         let mut content = String::new();
 
         for (i, record) in top.into_iter().enumerate() {
-            if i > 0 { content.push('\n') }
+            if i > 0 {
+                content.push('\n')
+            }
 
             write!(
-                content, 
-                "{} {}KR > <@{}> ", 
-                top_emoji(i), 
-                record.score(), 
+                content,
+                "{} {}KR > <@{}> ",
+                top_emoji(i),
+                record.score(),
                 record.user_id()
             )
-                .unwrap();
+            .unwrap();
         }
 
         content
@@ -317,4 +319,3 @@ fn top_emoji(idx: usize) -> char {
         _ => '💴',
     }
 }
-

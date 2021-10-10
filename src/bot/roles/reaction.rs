@@ -1,18 +1,18 @@
 //! Reaction role services.
 
-use crate::service::{Error, Service};
 use crate::model::roles::reaction::ReactionRole;
 use crate::model::Emoji;
+use crate::service::{Error, Service};
 
 use sqlx::postgres::PgPool;
 
 use std::future::Future;
 
-use twilight_model::channel::Reaction;
-use twilight_model::gateway::event::Event;
 use twilight_http::api_error::{ApiError, ErrorCode};
 use twilight_http::request::AuditLogReason;
 use twilight_http::Client;
+use twilight_model::channel::Reaction;
+use twilight_model::gateway::event::Event;
 
 /// Reaction role service.
 #[derive(Clone)]
@@ -36,7 +36,8 @@ impl ReactionRoles {
         match self.get_reaction_role(reaction).await? {
             // this is a reaction for a role!
             Some(rr) => {
-                let res = self.client
+                let res = self
+                    .client
                     .add_guild_member_role(guild_id, reaction.user_id, rr.role_id())
                     .reason("reaction role add")?
                     .exec()
@@ -52,13 +53,13 @@ impl ReactionRoles {
                             // silently discard permissions lacking errors
                             ErrorCode::PermissionsLacking => Ok(()),
                             _ => Err(err.into()),
-                        }
+                        },
                         _ => Err(err.into()),
-                    }
+                    },
                 }
             }
             // this is just a normal reaction
-            None => Ok(())
+            None => Ok(()),
         }
     }
 
@@ -72,7 +73,8 @@ impl ReactionRoles {
         match self.get_reaction_role(reaction).await? {
             // this is a reaction for a role!
             Some(rr) => {
-                let res = self.client
+                let res = self
+                    .client
                     .remove_guild_member_role(guild_id, reaction.user_id, rr.role_id())
                     .reason("reaction role remove")?
                     .exec()
@@ -88,18 +90,18 @@ impl ReactionRoles {
                             // silently discard permissions lacking errors
                             ErrorCode::PermissionsLacking => Ok(()),
                             _ => Err(err.into()),
-                        }
+                        },
                         _ => Err(err.into()),
-                    }
+                    },
                 }
             }
             // this is just a normal reaction
-            None => Ok(())
+            None => Ok(()),
         }
     }
 
     async fn get_reaction_role(
-        &self, 
+        &self,
         reaction: &Reaction,
     ) -> Result<Option<ReactionRole>, sqlx::Error> {
         let message_id = reaction.message_id;
@@ -126,9 +128,8 @@ impl<'f> Service<'f> for ReactionRoles {
                         error!("{}", e);
                     }
                 }
-                _ => ()
+                _ => (),
             }
         }
     }
 }
-

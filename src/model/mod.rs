@@ -6,17 +6,18 @@ pub mod xp;
 pub use sqlx::Error;
 
 use sqlx::{
-    Acquire, Database, Decode, Encode, types::Type,
+    database::{HasArguments, HasValueRef},
     encode::IsNull,
-    database::{HasValueRef, HasArguments},
     migrate::{Migrate, MigrateError},
+    types::Type,
+    Acquire, Database, Decode, Encode,
 };
 
 use twilight_model::channel::ReactionType;
 
-use std::ops::Deref;
 use std::fmt::{self, Debug, Formatter};
 use std::mem;
+use std::ops::Deref;
 
 /// Stores emojis in SQL records.
 ///
@@ -45,12 +46,8 @@ impl Debug for Emoji {
             write!(f, "{}", self.as_i64())
         } else {
             match self {
-                Emoji::Unicode(ch) => f.debug_tuple("Emoji::Unicode")
-                    .field(ch)
-                    .finish(),
-                Emoji::Custom(id) => f.debug_tuple("Emoji::Unicode")
-                    .field(id)
-                    .finish(),
+                Emoji::Unicode(ch) => f.debug_tuple("Emoji::Unicode").field(ch).finish(),
+                Emoji::Custom(id) => f.debug_tuple("Emoji::Unicode").field(id).finish(),
             }
         }
     }
@@ -58,7 +55,7 @@ impl Debug for Emoji {
 
 impl<'r, DB: Database> Decode<'r, DB> for Emoji
 where
-    i64: Decode<'r, DB>
+    i64: Decode<'r, DB>,
 {
     fn decode(
         value: <DB as HasValueRef<'r>>::ValueRef,
@@ -73,19 +70,18 @@ where
             Ok(Emoji::Custom(data & !(1 << Self::CUSTOM_BIT)))
         } else {
             // decode it as a u32 codepoint
-            Ok(Emoji::Unicode(char::from_u32(data as u32).ok_or("codepoint invalid")?))
+            Ok(Emoji::Unicode(
+                char::from_u32(data as u32).ok_or("codepoint invalid")?,
+            ))
         }
     }
 }
 
 impl<'q, DB: Database> Encode<'q, DB> for Emoji
 where
-    i64: Encode<'q, DB>
+    i64: Encode<'q, DB>,
 {
-    fn encode_by_ref(
-        &self, 
-        buf: &mut <DB as HasArguments<'q>>::ArgumentBuffer
-    ) -> IsNull {
+    fn encode_by_ref(&self, buf: &mut <DB as HasArguments<'q>>::ArgumentBuffer) -> IsNull {
         self.as_i64().encode(buf)
     }
 
@@ -98,9 +94,9 @@ where
     }
 }
 
-impl<DB: Database> Type<DB> for Emoji 
+impl<DB: Database> Type<DB> for Emoji
 where
-    i64: Type<DB>
+    i64: Type<DB>,
 {
     fn type_info() -> <DB as Database>::TypeInfo {
         i64::type_info()
@@ -120,19 +116,16 @@ impl From<ReactionType> for Emoji {
                 // pull the unicode character out
                 Emoji::Unicode(name.chars().next().unwrap())
             }
-            ReactionType::Custom { id, .. } => Emoji::Custom(id.0)
+            ReactionType::Custom { id, .. } => Emoji::Custom(id.0),
         }
     }
 }
 
 /// Runs migrations.
-pub async fn migrate<'a, E>(ex: E) -> Result<(), MigrateError> 
+pub async fn migrate<'a, E>(ex: E) -> Result<(), MigrateError>
 where
     E: Acquire<'a>,
     <<E as Acquire<'a>>::Connection as Deref>::Target: Migrate,
 {
-    sqlx::migrate!()
-        .run(ex)
-        .await
+    sqlx::migrate!().run(ex).await
 }
-

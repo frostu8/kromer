@@ -2,9 +2,9 @@
 
 use super::Error;
 
-use sqlx::{Executor, FromRow, postgres::Postgres};
+use sqlx::{postgres::Postgres, Executor, FromRow};
 
-use twilight_model::id::{UserId, GuildId};
+use twilight_model::id::{GuildId, UserId};
 
 /// A user's experience.
 #[derive(Debug, FromRow)]
@@ -48,14 +48,9 @@ impl Guild {
     }
 
     /// Gets the top `count` users in the guild.
-    pub async fn top<'a, E>(
-        &self,
-        ex: E,
-        count: u64,
-        page: u64,
-    ) -> Result<Vec<Record>, Error>
+    pub async fn top<'a, E>(&self, ex: E, count: u64, page: u64) -> Result<Vec<Record>, Error>
     where
-        E: Executor<'a, Database = Postgres>
+        E: Executor<'a, Database = Postgres>,
     {
         let count = count as i64;
         let offset = count * (page as i64);
@@ -65,25 +60,21 @@ impl Guild {
             SELECT * FROM xp WHERE guild_id = $1
             ORDER BY score DESC
             LIMIT $2 OFFSET $3
-            "#
+            "#,
         )
-            .bind(self.0)
-            .bind(count)
-            .bind(offset)
-            .fetch_all(ex)
-            .await
+        .bind(self.0)
+        .bind(count)
+        .bind(offset)
+        .fetch_all(ex)
+        .await
     }
 
     /// Gets a user's experience level.
     ///
     /// If a row doesn't exist, it will return a `User` with zero xp.
-    pub async fn get<'a, E>(
-        &self,
-        ex: E, 
-        user_id: UserId, 
-    ) -> Result<Record, Error> 
+    pub async fn get<'a, E>(&self, ex: E, user_id: UserId) -> Result<Record, Error>
     where
-        E: Executor<'a, Database = Postgres>
+        E: Executor<'a, Database = Postgres>,
     {
         let user_id = user_id.0 as i64;
 
@@ -92,22 +83,19 @@ impl Guild {
             .bind(user_id)
             .fetch_optional(ex)
             .await
-            .map(|user| user.unwrap_or(Record {
-                guild_id: self.0,
-                user_id,
-                score: 0,
-            }))
+            .map(|user| {
+                user.unwrap_or(Record {
+                    guild_id: self.0,
+                    user_id,
+                    score: 0,
+                })
+            })
     }
 
     /// Gives (or takes away) some experience to a user.
-    pub async fn add<'a, E>(
-        &self,
-        ex: E, 
-        user_id: UserId, 
-        score: i32
-    ) -> Result<(), Error>
+    pub async fn add<'a, E>(&self, ex: E, user_id: UserId, score: i32) -> Result<(), Error>
     where
-        E: Executor<'a, Database = Postgres> + Clone
+        E: Executor<'a, Database = Postgres> + Clone,
     {
         let user_id = user_id.0 as i64;
 
@@ -116,13 +104,13 @@ impl Guild {
             UPDATE xp 
             SET score = score + $3 
             WHERE guild_id = $1 AND user_id = $2
-            "#
+            "#,
         )
-            .bind(self.0)
-            .bind(user_id)
-            .bind(score)
-            .execute(ex.clone())
-            .await?;
+        .bind(self.0)
+        .bind(user_id)
+        .bind(score)
+        .execute(ex.clone())
+        .await?;
 
         // if no records were updated, the user record doesn't exist!
         if res.rows_affected() == 0 {
@@ -131,13 +119,13 @@ impl Guild {
                 r#"
                 INSERT INTO xp (guild_id, user_id, score)
                 VALUES ($1, $2, $3)
-                "#
+                "#,
             )
-                .bind(self.0)
-                .bind(user_id)
-                .bind(score)
-                .execute(ex)
-                .await?;
+            .bind(self.0)
+            .bind(user_id)
+            .bind(score)
+            .execute(ex)
+            .await?;
         }
 
         Ok(())
@@ -148,4 +136,3 @@ impl Guild {
 pub fn level(score: i32) -> i32 {
     (score as f64 / 30.).sqrt() as i32 + 1
 }
-

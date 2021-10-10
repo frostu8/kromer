@@ -9,7 +9,7 @@ pub use cons::{Cons, ConsFuture};
 
 use std::future::Future;
 
-use tokio_stream::{StreamExt, Stream};
+use tokio_stream::{Stream, StreamExt};
 
 /// A service type.
 ///
@@ -36,20 +36,20 @@ impl Services<()> {
     /// Add a service to the service collection.
     pub fn add<S>(self, service: S) -> Services<S>
     where
-        S: for<'a> Service<'a> + Send + Sync + Clone + 'static
+        S: for<'a> Service<'a> + Send + Sync + Clone + 'static,
     {
         Services(service)
     }
 }
 
-impl<T> Services<T> 
+impl<T> Services<T>
 where
-    T: for<'a> Service<'a> + Send + Sync + Clone + 'static
+    T: for<'a> Service<'a> + Send + Sync + Clone + 'static,
 {
     /// Add a service to the service collection.
     pub fn add<S>(self, service: S) -> Services<Cons<T, S>>
     where
-        S: for<'a> Service<'a> + Send + Sync + Clone + 'static
+        S: for<'a> Service<'a> + Send + Sync + Clone + 'static,
     {
         Services(Cons::new(self.0, service))
     }
@@ -69,7 +69,7 @@ where
                 Event::ShardDisconnected(_) => {
                     info!("shard #{} disconnected", shard_id);
                 }
-                _ => ()
+                _ => (),
             }
 
             let service = self.0.clone();
@@ -80,4 +80,3 @@ where
         }
     }
 }
-

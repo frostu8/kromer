@@ -2,11 +2,11 @@
 
 use super::super::{Emoji, Error};
 
-use sqlx::{Executor, FromRow, postgres::Postgres};
+use sqlx::{postgres::Postgres, Executor, FromRow};
 
 use std::fmt::{self, Display, Formatter};
 
-use twilight_model::id::{ChannelId, RoleId, MessageId, GuildId};
+use twilight_model::id::{ChannelId, GuildId, MessageId, RoleId};
 
 #[derive(FromRow)]
 pub struct ReactionRole {
@@ -32,7 +32,7 @@ impl ReactionRole {
         emoji: Emoji,
     ) -> Result<Option<ReactionRole>, Error>
     where
-        E: Executor<'a, Database = Postgres>
+        E: Executor<'a, Database = Postgres>,
     {
         sqlx::query_as("SELECT * FROM reaction_roles WHERE message_id = $1 AND emoji = $2")
             .bind(message_id.0 as i64)
@@ -57,23 +57,23 @@ impl Message {
         emoji: Emoji,
     ) -> Result<(), CreateError>
     where
-        E: Executor<'a, Database = Postgres>
+        E: Executor<'a, Database = Postgres>,
     {
         sqlx::query(
             r#"
             INSERT INTO reaction_roles (guild_id, message_id, channel_id, role_id, emoji)
             VALUES ($1, $2, $3, $4, $5)
-            "#
+            "#,
         )
-            .bind(self.guild_id.0 as i64)
-            .bind(self.message_id.0 as i64)
-            .bind(self.channel_id.0 as i64)
-            .bind(role_id.0 as i64)
-            .bind(emoji)
-            .execute(ex)
-            .await
-            .map(|_| ())
-            .map_err(From::from)
+        .bind(self.guild_id.0 as i64)
+        .bind(self.message_id.0 as i64)
+        .bind(self.channel_id.0 as i64)
+        .bind(role_id.0 as i64)
+        .bind(emoji)
+        .execute(ex)
+        .await
+        .map(|_| ())
+        .map_err(From::from)
     }
 }
 
@@ -95,7 +95,7 @@ impl From<Error> for CreateError {
                     return CreateError::AlreadyExists;
                 }
             }
-            _ => ()
+            _ => (),
         }
 
         CreateError::Other(err)
@@ -119,4 +119,3 @@ impl std::error::Error for CreateError {
         }
     }
 }
-

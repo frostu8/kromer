@@ -4,7 +4,7 @@ use pin_project::pin_project;
 
 use std::future::Future;
 use std::pin::Pin;
-use std::task::{Poll, Context};
+use std::task::{Context, Poll};
 
 /// Two services types executed one after the other.
 #[derive(Clone)]
@@ -16,7 +16,7 @@ impl<T, U> Cons<T, U> {
     }
 }
 
-impl<'f, T, U> Service<'f> for Cons<T, U> 
+impl<'f, T, U> Service<'f> for Cons<T, U>
 where
     T: Service<'f> + Send + Sync,
     U: Service<'f> + Send + Sync + 'f,
@@ -78,9 +78,8 @@ where
                         Poll::Pending => return Poll::Pending,
                     }
                 }
-                StateProj::Second(fut) => return fut.poll(cx)
+                StateProj::Second(fut) => return fut.poll(cx),
             }
         }
     }
 }
-
