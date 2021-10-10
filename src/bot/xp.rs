@@ -2,6 +2,7 @@
 
 use crate::model::xp::{Guild, Record};
 use crate::service::{Error, Service};
+use crate::impl_service;
 
 use sqlx::postgres::PgPool;
 
@@ -67,18 +68,12 @@ impl Xp {
     }
 }
 
-impl<'f> Service<'f> for Xp {
-    type Future = impl Future<Output = ()> + 'f;
-
-    fn handle(&'f self, ev: &'f Event) -> Self::Future {
-        async move {
+impl_service! {
+    impl Service for Xp {
+        async fn handle(&self, ev: &Event) -> Result<(), Error> {
             match ev {
-                Event::MessageCreate(msg) => {
-                    if let Err(e) = self.handle_message(msg).await {
-                        error!("{}", e);
-                    }
-                }
-                _ => (),
+                Event::MessageCreate(msg) => self.handle_message(msg).await,
+                _ => Ok(()),
             }
         }
     }
@@ -199,24 +194,22 @@ impl RankCommand {
     }
 }
 
-impl<'f> Service<'f> for RankCommand {
-    type Future = impl Future<Output = ()> + 'f;
-
-    fn handle(&'f self, ev: &'f Event) -> Self::Future {
-        async move {
+impl_service! {
+    impl Service for RankCommand {
+        async fn handle(&self, ev: &Event) -> Result<(), Error> {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
                         if cmd.data.name.as_str() == "rank" {
-                            if let Err(err) = self.command(&*cmd).await {
-                                error!("error /rank: {}", err);
-                            }
+                            return self.command(&*cmd).await;
                         }
                     }
                     _ => (),
                 },
                 _ => (),
             }
+
+            Ok(())
         }
     }
 }
@@ -263,24 +256,22 @@ impl TopCommand {
     }
 }
 
-impl<'f> Service<'f> for TopCommand {
-    type Future = impl Future<Output = ()> + 'f;
-
-    fn handle(&'f self, ev: &'f Event) -> Self::Future {
-        async move {
+impl_service! {
+    impl Service for TopCommand {
+        async fn handle(&self, ev: &Event) -> Result<(), Error> {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
                         if cmd.data.name.as_str() == "top" {
-                            if let Err(err) = self.command(&*cmd).await {
-                                error!("error /top: {}", err);
-                            }
+                            return self.command(&*cmd).await;
                         }
                     }
                     _ => (),
                 },
                 _ => (),
             }
+
+            Ok(())
         }
     }
 }

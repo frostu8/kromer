@@ -80,3 +80,43 @@ where
         }
     }
 }
+
+/// Macro for easily implementing a service.
+///
+/// This requires Nightly rust and `#![feature(type_alias_impl_trait)]` to be
+/// enabled.
+#[macro_export]
+macro_rules! impl_service {
+    {
+        impl Service for $ty:path {
+            async fn handle(&$self_ident:ident, $ev_ident:ident: $ev_ty:ty) -> Result<(), $err_ty:path>
+            $body:tt
+        }
+    } => {
+        impl $ty {
+            async fn __handle(
+                $self_ident: &Self, 
+                $ev_ident: $ev_ty,
+            ) -> ::std::result::Result<(), $err_ty> {
+                $body
+            }
+        }
+
+        impl<'f> Service<'f> for $ty {
+            type Future = impl Future<Output = ()> + 'f;
+
+            fn handle(&'f self, ev: &'f crate::service::Event) -> Self::Future {
+                async move {
+                    let res = Self::__handle(self, ev).await;
+
+                    if let Err(err) = res {
+                        // print error inf
+                        ::log::error!("service: {}", err);
+                    }
+                }
+            }
+        }
+    }
+}
+
+

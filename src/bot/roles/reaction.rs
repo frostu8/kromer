@@ -3,6 +3,7 @@
 use crate::model::roles::reaction::ReactionRole;
 use crate::model::Emoji;
 use crate::service::{Error, Service};
+use crate::impl_service;
 
 use sqlx::postgres::PgPool;
 
@@ -112,24 +113,15 @@ impl ReactionRoles {
     }
 }
 
-impl<'f> Service<'f> for ReactionRoles {
-    type Future = impl Future<Output = ()> + 'f;
-
-    fn handle(&'f self, ev: &'f Event) -> Self::Future {
-        async move {
+impl_service! {
+    impl Service for ReactionRoles {
+        async fn handle(&self, ev: &Event) -> Result<(), Error> {
             match ev {
-                Event::ReactionAdd(reaction) => {
-                    if let Err(e) = self.reaction_add(reaction).await {
-                        error!("{}", e);
-                    }
-                }
-                Event::ReactionRemove(reaction) => {
-                    if let Err(e) = self.reaction_remove(reaction).await {
-                        error!("{}", e);
-                    }
-                }
-                _ => (),
+                Event::ReactionAdd(reaction) => self.reaction_add(reaction).await,
+                Event::ReactionRemove(reaction) => self.reaction_remove(reaction).await,
+                _ => Ok(()),
             }
         }
     }
 }
+
