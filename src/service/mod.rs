@@ -1,8 +1,6 @@
 //! The different, independent components of the Kromer ecosystem.
 
 mod cons;
-pub mod roles;
-pub mod xp;
 
 pub use anyhow::Error;
 pub use twilight_model::gateway::event::Event;

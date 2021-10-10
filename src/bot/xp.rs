@@ -1,8 +1,9 @@
 //! Diminishing "experience" tracking services.
 
-use sqlx::postgres::PgPool;
-
 use crate::model::xp::{Guild, Record};
+use crate::service::{Error, Service};
+
+use sqlx::postgres::PgPool;
 
 use std::time::{Instant, Duration};
 use std::future::Future;
@@ -10,8 +11,6 @@ use std::sync::Arc;
 use std::fmt::Write;
 
 use dashmap::DashMap;
-
-use super::{Error, Service};
 
 use twilight_model::channel::message::{Message, allowed_mentions::AllowedMentions};
 use twilight_model::gateway::event::Event;

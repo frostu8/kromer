@@ -2,7 +2,8 @@
 
 use std::env;
 
-use kromer::services::Services;
+use kromer::service::Services;
+use kromer::bot;
 
 use twilight_model::id::{ApplicationId, GuildId};
 use twilight_model::gateway::Intents;
@@ -158,10 +159,10 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
 
     // create and run our services
     Services::new()
-        .add(kromer::services::xp::Xp::new(db.clone()))
-        .add(kromer::services::xp::RankCommand::new(db.clone(), client.clone()))
-        .add(kromer::services::xp::TopCommand::new(db.clone(), client.clone()))
-        .add(kromer::services::roles::reaction::ReactionRoles::new(db.clone(), client.clone()))
+        .add(bot::xp::Xp::new(db.clone()))
+        .add(bot::xp::RankCommand::new(db.clone(), client.clone()))
+        .add(bot::xp::TopCommand::new(db.clone(), client.clone()))
+        .add(bot::roles::reaction::ReactionRoles::new(db.clone(), client.clone()))
         .run(events)
         .await;
 

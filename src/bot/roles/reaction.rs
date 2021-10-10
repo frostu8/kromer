@@ -1,13 +1,12 @@
 //! Reaction role services.
 
-use super::super::{Error, Service};
+use crate::service::{Error, Service};
+use crate::model::roles::reaction::ReactionRole;
+use crate::model::Emoji;
 
 use sqlx::postgres::PgPool;
 
 use std::future::Future;
-
-use crate::model::roles::reaction::ReactionRole;
-use crate::model::Emoji;
 
 use twilight_model::channel::Reaction;
 use twilight_model::gateway::event::Event;

@@ -6,7 +6,8 @@
 
 #![feature(type_alias_impl_trait)]
 
-pub mod services;
+pub mod bot;
+pub mod service;
 pub mod model;
 
 #[macro_use]
