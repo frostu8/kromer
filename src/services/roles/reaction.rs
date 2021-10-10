@@ -1,8 +1,10 @@
 //! Reaction role services.
 
-use super::super::{Error, Service, ServiceFuture};
+use super::super::{Error, Service};
 
 use sqlx::postgres::PgPool;
+
+use std::future::Future;
 
 use crate::model::roles::reaction::ReactionRole;
 use crate::model::Emoji;
@@ -109,9 +111,11 @@ impl ReactionRoles {
     }
 }
 
-impl Service for ReactionRoles {
-    fn handle<'f>(&'f self, ev: &'f Event) -> ServiceFuture<'f> {
-        Box::pin(async move {
+impl<'f> Service<'f> for ReactionRoles {
+    type Future = impl Future<Output = ()> + 'f;
+
+    fn handle(&'f self, ev: &'f Event) -> Self::Future {
+        async move {
             match ev {
                 Event::ReactionAdd(reaction) => {
                     if let Err(e) = self.reaction_add(reaction).await {
@@ -125,7 +129,7 @@ impl Service for ReactionRoles {
                 }
                 _ => ()
             }
-        })
+        }
     }
 }
 

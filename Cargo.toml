@@ -12,6 +12,8 @@ twilight-http = "0.6"
 twilight-gateway = "0.6"
 twilight-cache-inmemory = "0.6"
 
+pin-project = "1.0"
+
 anyhow = "1"
 dotenv = "0.15"
 dashmap = "4"

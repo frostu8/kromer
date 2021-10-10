@@ -5,12 +5,13 @@ use sqlx::postgres::PgPool;
 use crate::model::xp::{Guild, Record};
 
 use std::time::{Instant, Duration};
+use std::future::Future;
 use std::sync::Arc;
 use std::fmt::Write;
 
 use dashmap::DashMap;
 
-use super::{Error, Service, ServiceFuture};
+use super::{Error, Service};
 
 use twilight_model::channel::message::{Message, allowed_mentions::AllowedMentions};
 use twilight_model::gateway::event::Event;
@@ -67,10 +68,11 @@ impl Xp {
     }
 }
 
-impl Service for Xp {
-    /// Handles an event.
-    fn handle<'f>(&'f self, ev: &'f Event) -> ServiceFuture<'f> {
-        Box::pin(async move {
+impl<'f> Service<'f> for Xp {
+    type Future = impl Future<Output = ()> + 'f;
+
+    fn handle(&'f self, ev: &'f Event) -> Self::Future {
+        async move {
             match ev {
                 Event::MessageCreate(msg) => {
                     if let Err(e) = self.handle_message(msg).await {
@@ -79,7 +81,7 @@ impl Service for Xp {
                 }
                 _ => ()
             }
-        })
+        }
     }
 }
 
@@ -197,10 +199,11 @@ impl RankCommand {
     }
 }
 
-impl Service for RankCommand {
-    /// Handles an event.
-    fn handle<'f>(&'f self, ev: &'f Event) -> ServiceFuture<'f> {
-        Box::pin(async move {
+impl<'f> Service<'f> for RankCommand {
+    type Future = impl Future<Output = ()> + 'f;
+
+    fn handle(&'f self, ev: &'f Event) -> Self::Future {
+        async move {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
@@ -214,7 +217,7 @@ impl Service for RankCommand {
                 }
                 _ => ()
             }
-        })
+        }
     }
 }
 
@@ -261,10 +264,11 @@ impl TopCommand {
     }
 }
 
-impl Service for TopCommand {
-    /// Handles an event.
-    fn handle<'f>(&'f self, ev: &'f Event) -> ServiceFuture<'f> {
-        Box::pin(async move {
+impl<'f> Service<'f> for TopCommand {
+    type Future = impl Future<Output = ()> + 'f;
+
+    fn handle(&'f self, ev: &'f Event) -> Self::Future {
+        async move {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
@@ -278,7 +282,7 @@ impl Service for TopCommand {
                 }
                 _ => ()
             }
-        })
+        }
     }
 }
 

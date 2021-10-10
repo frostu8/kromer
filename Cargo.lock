@@ -651,6 +651,7 @@ dependencies = [
  "dotenv",
  "env_logger",
  "log",
+ "pin-project",
  "sqlx",
  "structopt",
  "tokio",

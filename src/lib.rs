@@ -4,6 +4,8 @@
 //! our Discord servers the best they can be? A good bot should be open and
 //! free, just like the platform, and that's what this aims to be.
 
+#![feature(type_alias_impl_trait)]
+
 pub mod services;
 pub mod model;
 
