@@ -1,5 +1,6 @@
 //! The different, independent components of the Kromer ecosystem.
 
+pub mod roles;
 pub mod xp;
 
 pub use anyhow::Error;

@@ -133,7 +133,7 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
     info!("starting discord gateway...");
 
     // throw up a cluster
-    let cluster = Cluster::builder(token, Intents::GUILD_MESSAGES)
+    let cluster = Cluster::builder(token, Intents::GUILD_MESSAGES | Intents::GUILD_MESSAGE_REACTIONS)
         .shard_scheme(ShardScheme::Auto)
         .build()
         .await;
@@ -161,6 +161,7 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
         .add(kromer::services::xp::Xp::new(db.clone()))
         .add(kromer::services::xp::RankCommand::new(db.clone(), client.clone()))
         .add(kromer::services::xp::TopCommand::new(db.clone(), client.clone()))
+        .add(kromer::services::roles::reaction::ReactionRoles::new(db.clone(), client.clone()))
         .run(events)
         .await;
 
