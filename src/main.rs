@@ -55,9 +55,13 @@ struct Run {}
 #[derive(StructOpt)]
 #[structopt(name = "migrate", about = "runs discord command migrations")]
 struct Migrate {
-    #[structopt(short, long)]
+    #[structopt(short, long, required_unless = "global")]
     /// the id of the guild to run discord migrations on
-    guild: u64,
+    guild: Option<u64>,
+    #[structopt(long)]
+    #[allow(dead_code)]
+    /// whether to apply the migrations globally or not
+    global: bool,
 }
 
 fn main() {
@@ -174,9 +178,13 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
     let token = get_discord_token()?;
     let application_id = get_application_id()?;
 
-    let guild_id = GuildId(migrate.guild);
+    let guild_id = migrate.guild.map(GuildId);
 
     info!("running discord command migrations...");
+
+    if guild_id.is_none() {
+        warn!("applying migrations globally! this could take a while to be reflected");
+    }
 
     // create a client
     let client = ClientBuilder::new()
@@ -186,32 +194,61 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
 
     info!("migrating {}...", highlight.paint("/rank"));
 
-    client
-        .new_create_guild_command(guild_id, "rank")?
-        .chat_input("returns your or another user's level and KR balance")?
-        .command_options(&[CommandOption::User(BaseCommandOptionData {
-            name: String::from("user"),
-            description: String::from("the user to check"),
-            required: false,
-        })])?
-        .exec()
-        .await?;
+    if let Some(guild_id) = guild_id {
+        client
+            .new_create_guild_command(guild_id, "rank")?
+            .chat_input("returns your or another user's level and KR balance")?
+            .command_options(&[CommandOption::User(BaseCommandOptionData {
+                name: String::from("user"),
+                description: String::from("the user to check"),
+                required: false,
+            })])?
+            .exec()
+            .await?;
+    } else {
+        client
+            .new_create_global_command("rank")?
+            .chat_input("returns your or another user's level and KR balance")?
+            .command_options(&[CommandOption::User(BaseCommandOptionData {
+                name: String::from("user"),
+                description: String::from("the user to check"),
+                required: false,
+            })])?
+            .exec()
+            .await?;
+    }
 
     info!("migrating {}...", highlight.paint("/top"));
 
-    client
-        .new_create_guild_command(guild_id, "top")?
-        .chat_input("returns the leading 10 members of the guild in KR balance")?
-        .exec()
-        .await?;
+    if let Some(guild_id) = guild_id {
+        client
+            .new_create_guild_command(guild_id, "top")?
+            .chat_input("returns the leading 10 members of the guild in KR balance")?
+            .exec()
+            .await?;
+    } else {
+        client
+            .new_create_global_command("top")?
+            .chat_input("returns the leading 10 members of the guild in KR balance")?
+            .exec()
+            .await?;
+    }
 
     info!("migrating {}...", highlight.paint("/info"));
 
-    client
-        .new_create_guild_command(guild_id, "info")?
-        .chat_input("returns info about the bot currently running")?
-        .exec()
-        .await?;
+    if let Some(guild_id) = guild_id {
+        client
+            .new_create_guild_command(guild_id, "info")?
+            .chat_input("returns info about the bot currently running")?
+            .exec()
+            .await?;
+    } else {
+        client
+            .new_create_global_command("info")?
+            .chat_input("returns info about the bot currently running")?
+            .exec()
+            .await?;
+    }
 
     info!("migrations complete!");
 
