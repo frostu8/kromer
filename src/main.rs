@@ -7,10 +7,10 @@ use kromer::bot;
 use kromer::service::Services;
 
 use twilight_gateway::cluster::{Cluster, ShardScheme};
-use twilight_http::client::ClientBuilder;
+use twilight_http::Client;
 use twilight_model::application::command::{BaseCommandOptionData, CommandOption};
 use twilight_model::gateway::Intents;
-use twilight_model::id::{ApplicationId, GuildId};
+use twilight_model::id::GuildId;
 
 use anyhow::{anyhow, Result};
 use log::LevelFilter;
@@ -92,7 +92,6 @@ fn main() {
 async fn main_run(_options: Opt, _run: Run) -> Result<()> {
     // get config
     let token = get_discord_token()?;
-    let application_id = get_application_id()?;
     let database = get_database_url()?;
 
     info!("initiating connection to database...");
@@ -118,10 +117,7 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
     }
 
     // get an http client
-    let client = ClientBuilder::new()
-        .token(token.clone())
-        .application_id(ApplicationId(application_id))
-        .build();
+    let client = create_client(&token).await?;
 
     info!("starting discord gateway...");
 
@@ -176,7 +172,6 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
     };
 
     let token = get_discord_token()?;
-    let application_id = get_application_id()?;
 
     let guild_id = migrate.guild.map(GuildId);
 
@@ -186,11 +181,8 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
         warn!("applying migrations globally! this could take a while to be reflected");
     }
 
-    // create a client
-    let client = ClientBuilder::new()
-        .token(token)
-        .application_id(ApplicationId(application_id))
-        .build();
+    // get an http client
+    let client = create_client(&token).await?;
 
     info!("migrating {}...", highlight.paint("/rank"));
 
@@ -269,9 +261,12 @@ fn get_discord_token() -> Result<String> {
     })
 }
 
-fn get_application_id() -> Result<u64> {
-    env::var("DISCORD_APPLICATION_ID")
-        .map_err(|_| anyhow!("discord application id not provided! provide DISCORD_APPLICATION_ID in environment or .env file."))?
-        .parse::<u64>()
-        .map_err(|err| anyhow!("discord application id is invalid: {}", err))
+async fn create_client(token: impl Into<String>) -> Result<Client> {
+    let client = Client::new(token.into());
+    let app_id = kromer::bot::fetch_application_id(&client).await?;
+
+    client.set_application_id(app_id);
+
+    Ok(client)
 }
+
