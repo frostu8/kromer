@@ -17,7 +17,7 @@ use tokio_stream::{Stream, StreamExt};
 /// else. Services should be treated as first-class and errors must be handled
 /// inside of the service (and logged).
 pub trait Service<'f> {
-    type Future: Future<Output = ()> + 'f;
+    type Future: Future<Output = ()> + Send + 'f;
 
     /// Handles a gateway event.
     fn handle(&'f self, ev: &'f Event) -> Self::Future;
@@ -58,7 +58,6 @@ where
     pub async fn run<E>(&self, mut stream: E)
     where
         E: Stream<Item = (u64, Event)> + Unpin,
-        for<'f> <T as Service<'f>>::Future: Send,
     {
         while let Some((shard_id, ev)) = stream.next().await {
             // print status info
