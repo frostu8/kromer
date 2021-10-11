@@ -2,6 +2,7 @@
 
 use crate::model::xp::{Guild, Record};
 use crate::service::{Error, Service};
+use crate::command::chat::Arguments;
 use crate::impl_service;
 
 use sqlx::postgres::PgPool;
@@ -16,7 +17,7 @@ use twilight_http::Client;
 use twilight_model::application::{
     callback::{CallbackData, InteractionResponse},
     interaction::{
-        application_command::{ApplicationCommand, CommandDataOption},
+        application_command::ApplicationCommand,
         Interaction,
     },
 };
@@ -142,25 +143,15 @@ impl RankCommand {
         let guild_id = command.guild_id.ok_or(anyhow!("guild_id is missing"))?;
 
         // get the user_id
-        let user_id = command
-            .data
-            .options
-            .iter()
-            .find(|option| option.name() == "user")
-            .map(|user| match user {
-                CommandDataOption::String { value, .. } => {
-                    value.parse::<u64>().map(UserId).map_err(From::from)
-                }
-                _ => Err(anyhow!("user option is not valid type")),
-            })
-            .unwrap_or_else(|| {
-                command
-                    .member
-                    .as_ref()
-                    .and_then(|member| member.user.as_ref())
-                    .map(|user| user.id)
-                    .ok_or(anyhow!("member missing for /rank"))
-            })?;
+        let user_id = match Arguments::new(&command.data).get_string("user")? {
+            Some(id) => id.parse::<u64>().map(UserId)?,
+            None => command
+                .member
+                .as_ref()
+                .and_then(|member| member.user.as_ref())
+                .map(|user| user.id)
+                .ok_or(anyhow!("member missing for /rank"))?,
+        };
 
         // finally.... finally... find the exp for the specified user
         let user = Guild::new(guild_id).get(&self.db, user_id).await?;

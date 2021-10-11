@@ -7,6 +7,7 @@
 #![feature(type_alias_impl_trait)]
 
 pub mod bot;
+pub mod command;
 pub mod model;
 pub mod service;
 
