@@ -151,16 +151,30 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
         cluster_spawn.up().await;
     });
 
-    // create and run our services
-    Services::new(Context::new(client.clone(), db.clone()))
+    // create our services
+    let services = Services::new(Context::new(client.clone(), db.clone()))
         .add::<bot::xp::Xp>()
         .add::<bot::xp::RankCommand>()
         .add::<bot::xp::TopCommand>()
         .add::<bot::roles::reaction::ReactionRoles>()
         .add::<bot::roles::reaction::CreateReactionRole>()
-        .add::<bot::info::InfoCommand>()
-        .run(events)
-        .await;
+        .add::<bot::info::InfoCommand>();
+
+    // spawn our event listeners in another task
+    tokio::spawn(async move { services.run(events).await });
+
+    info!("bot is initialized! waiting for events...");
+
+    // wait for ctrl + c
+    tokio::signal::ctrl_c().await?;
+
+    info!("shutdown signal recieved");
+    info!("shutting down gateway connections...");
+
+    // do shutdown
+    cluster.down();
+
+    info!("waiting for threads to exit...");
 
     Ok(())
 }
