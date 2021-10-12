@@ -40,7 +40,7 @@ Are you tired of all the DELTARUNE propaganda in the official bot? Why not
 Not only can you host kromer, but you are encouraged to! Feel free to poke
 around at the internals while you're at it, but by no means it is required.
 What *is* required is some basic shell knowledge, a
-[**Discord application** set up with a **bot acount**][1], [**PostgreSQL**][2]
+[**Discord application** set up with a **bot account**][1], [**PostgreSQL**][2]
 and some of your time and love 🥰.
 
 Once you got everything fired up, you'll need to set these environment 
