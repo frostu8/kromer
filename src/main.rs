@@ -87,7 +87,7 @@ fn main() {
     };
 
     if let Err(err) = res {
-        error!("{}", err);
+        error!("error: {:?}", err);
         std::process::exit(1);
     }
 }
