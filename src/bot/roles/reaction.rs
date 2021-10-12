@@ -1,7 +1,8 @@
 //! Reaction role services.
 
-use crate::model::roles::reaction::ReactionRole;
+use crate::model::roles::reaction::{Message, ReactionRole};
 use crate::model::Emoji;
+use crate::command::chat::Arguments;
 use crate::service::{Error, Service};
 use crate::impl_service;
 
@@ -10,8 +11,22 @@ use sqlx::postgres::PgPool;
 use twilight_http::api_error::{ApiError, ErrorCode};
 use twilight_http::request::AuditLogReason;
 use twilight_http::Client;
+
+use twilight_model::id::RoleId;
 use twilight_model::channel::Reaction;
 use twilight_model::gateway::event::Event;
+use twilight_model::application::interaction::Interaction;
+
+use twilight_mention::Mention;
+
+use twilight_standby::Standby;
+
+use tokio::select;
+use tokio::time::sleep;
+
+use std::time::Duration;
+
+use anyhow::anyhow;
 
 /// Reaction role service.
 #[derive(Clone)]
@@ -119,6 +134,152 @@ impl_service! {
                 Event::ReactionRemove(reaction) => self.reaction_remove(reaction).await,
                 _ => Ok(()),
             }
+        }
+    }
+}
+
+/// Allows easy creation of reaction roles.
+#[derive(Clone)]
+pub struct CreateReactionRole {
+    db: PgPool,
+    client: Client,
+    standby: Standby,
+}
+
+impl CreateReactionRole {
+    pub fn new(db: PgPool, client: Client, standby: Standby) -> CreateReactionRole {
+        CreateReactionRole { db, client, standby }
+    }
+
+    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
+        let guild_id = match command.guild_id() {
+            Some(guild_id) => guild_id,
+            None => return Err(anyhow!("guild_id is missing")),
+        };
+
+        let user_id = command.user_id();
+
+        let role_id = command.get_string("role")?
+            .ok_or(anyhow!("role is missing for /reactionroles add!"))?
+            .parse::<u64>()
+            .map(RoleId)?;
+
+        // create a response
+        command
+            .respond()
+            .content(
+                "react with the emoji of your choice to the message of your \
+                 choice to set up the reaction role!. ⚠️ this will expire in \
+                 a minute!"
+            )
+            .ephemeral()
+            .exec(&self.client)
+            .await?;
+
+        // wait for a reaction...
+        let reaction = self.standby.wait_for(guild_id, move |event: &Event| {
+            match event {
+                Event::ReactionAdd(reaction) => reaction.0.user_id == user_id,
+                _ => false,
+            }
+        });
+
+        // ...or the timeout
+        select! {
+            biased;
+            _ = sleep(Duration::from_secs(60)) => {
+                // send expiration message
+                command
+                    .followup()
+                    .content("request has expired! try `/reactionroles add` again to continue")
+                    .ephemeral()
+                    .exec(&self.client)
+                    .await?;
+            }
+            event = reaction => {
+                let reaction = match event? {
+                    Event::ReactionAdd(reaction) => reaction,
+                    _ => unreachable!(),
+                };
+
+                let emoji = reaction.emoji.clone().into();
+
+                // cool! we now have everything needed to create a rr!
+                let message = Message::new(
+                    guild_id, 
+                    reaction.message_id, 
+                    reaction.channel_id,
+                );
+
+                let res = message.create(&self.db, role_id, emoji).await;
+
+                match res {
+                    Ok(_) => {
+                        let content = format!(
+                            "reaction role set up!\n\
+                             i will now give the {} role to anyone who reacts \
+                             with {} to that message!",
+                            role_id.mention(),
+                            emoji,
+                        );
+
+                        command
+                            .followup()
+                            .content(content)
+                            .ephemeral()
+                            .exec(&self.client)
+                            .await?;
+                    }
+                    Err(err) if err.exists() => {
+                        // get the existing reaction role
+                        let rr = ReactionRole::get(&self.db, reaction.message_id, emoji)
+                            .await?
+                            .expect("db told us a RR already exists, but we can't find it!");
+
+                        let content = format!(
+                            "a reaction role that gives {} has already been \
+                             set up for the emoji {}! try removing it first!",
+                            rr.role_id().mention(),
+                            emoji,
+                        );
+
+                        command
+                            .followup()
+                            .content(content)
+                            .ephemeral()
+                            .exec(&self.client)
+                            .await?;
+                    }
+                    Err(err) => return Err(err.into())
+                }
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl_service! {
+    impl Service for CreateReactionRole {
+        async fn handle(&self, ev: &Event) -> Result<(), Error> {
+            match ev {
+                Event::InteractionCreate(int) => match &int.0 {
+                    Interaction::ApplicationCommand(cmd) => {
+                        let args = Arguments::new(&*cmd);
+
+                        if args.name() == "reactionroles" {
+                            match args.get_subcommand("add")? {
+                                Some(args) => return self.command(args).await,
+                                None => (),
+                            }
+                        }
+                    }
+                    _ => (),
+                },
+                _ => (),
+            }
+
+            Ok(())
         }
     }
 }

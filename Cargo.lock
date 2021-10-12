@@ -651,7 +651,6 @@ dependencies = [
  "dotenv",
  "env_logger",
  "log",
- "pin-project",
  "sqlx",
  "structopt",
  "tokio",
@@ -659,7 +658,9 @@ dependencies = [
  "twilight-cache-inmemory",
  "twilight-gateway",
  "twilight-http",
+ "twilight-mention",
  "twilight-model",
+ "twilight-standby",
 ]
 
 [[package]]
@@ -1658,6 +1659,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "twilight-mention"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76656c22e0c969602386eb310bbcd38f3ddbc6e971e4e582c46eda642bc4eca8"
+dependencies = [
+ "twilight-model",
+]
+
+[[package]]
 name = "twilight-model"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1668,6 +1678,19 @@ dependencies = [
  "serde-value",
  "serde_repr",
  "tracing",
+]
+
+[[package]]
+name = "twilight-standby"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0182f8140dd5af1086752d4a61e16f4bf4eae925f60a482139cd816880cac7da"
+dependencies = [
+ "dashmap",
+ "futures-util",
+ "tokio",
+ "tracing",
+ "twilight-model",
 ]
 
 [[package]]

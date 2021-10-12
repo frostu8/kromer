@@ -8,9 +8,19 @@ use kromer::service::Services;
 
 use twilight_gateway::cluster::{Cluster, ShardScheme};
 use twilight_http::Client;
-use twilight_model::application::command::{BaseCommandOptionData, CommandOption};
+use twilight_model::application::command::{
+    BaseCommandOptionData, 
+    OptionsCommandOptionData,
+    permissions::{
+        CommandPermissions,
+        CommandPermissionsType,
+    },
+    CommandOption,
+};
 use twilight_model::gateway::Intents;
 use twilight_model::id::GuildId;
+
+use twilight_standby::Standby;
 
 use anyhow::{anyhow, Result};
 use log::LevelFilter;
@@ -148,14 +158,22 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
         cluster_spawn.up().await;
     });
 
+    // create standby ref
+    let standby = Standby::new();
+
     // create and run our services
-    Services::new()
+    Services::new(standby.clone())
         .add(bot::xp::Xp::new(db.clone()))
         .add(bot::xp::RankCommand::new(db.clone(), client.clone()))
         .add(bot::xp::TopCommand::new(db.clone(), client.clone()))
         .add(bot::roles::reaction::ReactionRoles::new(
             db.clone(),
             client.clone(),
+        ))
+        .add(bot::roles::reaction::CreateReactionRole::new(
+            db.clone(),
+            client.clone(),
+            standby.clone(),
         ))
         .add(bot::info::InfoCommand::new(client.clone()))
         .run(events)
@@ -238,6 +256,55 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
         client
             .new_create_global_command("info")?
             .chat_input("returns info about the bot currently running")?
+            .exec()
+            .await?;
+    }
+
+    info!("migrating {}...", highlight.paint("/reactionroles"));
+
+    if let Some(guild_id) = guild_id {
+        client
+            .new_create_guild_command(guild_id, "reactionroles")?
+            .chat_input("configure reaction roles")?
+            .default_permission(false)
+            .command_options(&[CommandOption::SubCommand(OptionsCommandOptionData {
+                name: String::from("add"),
+                description: String::from("creates a new reaction role"),
+                options: vec![CommandOption::Role(BaseCommandOptionData {
+                    name: String::from("role"),
+                    description: String::from("the role to set the reaction role as"),
+                    required: true,
+                })],
+                required: false,
+            })])?
+            .exec()
+            .await?;
+    } else {
+        error!("todo");
+    }
+
+    if let Some(guild_id) = guild_id {
+        info!("setting up permissions");
+
+        let commands = client.get_guild_commands(guild_id)?
+            .exec().await?
+            .model().await?;
+
+        let reactionroles_cmd = commands
+            .iter()
+            .find(|cmd| cmd.name == "reactionroles")
+            .unwrap();
+
+        client
+            .set_command_permissions(
+                guild_id,
+                &[
+                    (reactionroles_cmd.id.unwrap(), CommandPermissions {
+                        id: CommandPermissionsType::User(155785208556290048.into()),
+                        permission: true,
+                    })
+                ],
+            )?
             .exec()
             .await?;
     }

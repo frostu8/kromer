@@ -1,13 +1,14 @@
 //! Info commands.
 
 use crate::service::{Error, Service};
+use crate::command::chat::Arguments;
 use crate::impl_service;
 
 use twilight_http::Client;
 use twilight_model::application::{
     callback::{CallbackData, InteractionResponse},
     component::{button::{Button, ButtonStyle}, action_row::ActionRow, Component},
-    interaction::{application_command::ApplicationCommand, Interaction},
+    interaction::Interaction,
 };
 use twilight_model::channel::message::MessageFlags;
 use twilight_model::gateway::event::Event;
@@ -23,14 +24,14 @@ impl InfoCommand {
         InfoCommand { client }
     }
     
-    async fn command(&self, command: &ApplicationCommand) -> Result<(), Error> {
+    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
         // we don't really care about anything about the command besides the
         // id and token so we can respond.
 
         let response = InteractionResponse::ChannelMessageWithSource(self.make_info_response());
 
         self.client
-            .interaction_callback(command.id, &command.token, &response)
+            .interaction_callback(command.id(), command.token(), &response)
             .exec()
             .await?;
 
@@ -84,8 +85,10 @@ impl_service! {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
-                        if cmd.data.name.as_str() == "info" {
-                            return self.command(&*cmd).await;
+                        let args = Arguments::new(&*cmd);
+
+                        if args.name() == "info" {
+                            return self.command(args).await;
                         }
                     }
                     _ => (),

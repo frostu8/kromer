@@ -14,14 +14,8 @@ use std::time::{Duration, Instant};
 use dashmap::DashMap;
 
 use twilight_http::Client;
-use twilight_model::application::{
-    callback::{CallbackData, InteractionResponse},
-    interaction::{
-        application_command::ApplicationCommand,
-        Interaction,
-    },
-};
-use twilight_model::channel::message::{allowed_mentions::AllowedMentions, Message};
+use twilight_model::application::interaction::Interaction;
+use twilight_model::channel::message::Message;
 use twilight_model::gateway::event::Event;
 use twilight_model::id::{GuildId, UserId};
 
@@ -138,19 +132,14 @@ impl RankCommand {
         RankCommand { db, client }
     }
 
-    async fn command(&self, command: &ApplicationCommand) -> Result<(), Error> {
+    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
         // get guild id
-        let guild_id = command.guild_id.ok_or(anyhow!("guild_id is missing"))?;
+        let guild_id = command.guild_id().ok_or(anyhow!("guild_id is missing"))?;
 
         // get the user_id
-        let user_id = match Arguments::new(&command.data).get_string("user")? {
+        let user_id = match command.get_string("user")? {
             Some(id) => id.parse::<u64>().map(UserId)?,
-            None => command
-                .member
-                .as_ref()
-                .and_then(|member| member.user.as_ref())
-                .map(|user| user.id)
-                .ok_or(anyhow!("member missing for /rank"))?,
+            None => command.user_id(),
         };
 
         // finally.... finally... find the exp for the specified user
@@ -164,20 +153,10 @@ impl RankCommand {
             user.score(),
         );
 
-        let response = CallbackData {
-            content: Some(content),
-            allowed_mentions: Some(AllowedMentions::default()),
-            components: None,
-            embeds: Vec::new(),
-            flags: None,
-            tts: None,
-        };
-
-        let response = InteractionResponse::ChannelMessageWithSource(response);
-
-        self.client
-            .interaction_callback(command.id, &command.token, &response)
-            .exec()
+        command
+            .respond()
+            .content(content)
+            .exec(&self.client)
             .await?;
 
         Ok(())
@@ -190,8 +169,10 @@ impl_service! {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
-                        if cmd.data.name.as_str() == "rank" {
-                            return self.command(&*cmd).await;
+                        let args = Arguments::new(&*cmd);
+
+                        if args.name() == "rank" {
+                            return self.command(args).await;
                         }
                     }
                     _ => (),
@@ -216,9 +197,9 @@ impl TopCommand {
         TopCommand { db, client }
     }
 
-    async fn command(&self, command: &ApplicationCommand) -> Result<(), Error> {
+    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
         // get guild id and role id
-        let guild_id = command.guild_id.ok_or(anyhow!("guild_id is missing"))?;
+        let guild_id = command.guild_id().ok_or(anyhow!("guild_id is missing"))?;
 
         // get the top listing
         let top = Guild::new(guild_id).top(&self.db, 10, 0).await?;
@@ -226,20 +207,10 @@ impl TopCommand {
         // create a response
         let content = create_top_message(&top);
 
-        let response = CallbackData {
-            content: Some(content),
-            allowed_mentions: Some(AllowedMentions::default()),
-            components: None,
-            embeds: Vec::new(),
-            flags: None,
-            tts: None,
-        };
-
-        let response = InteractionResponse::ChannelMessageWithSource(response);
-
-        self.client
-            .interaction_callback(command.id, &command.token, &response)
-            .exec()
+        command
+            .respond()
+            .content(content)
+            .exec(&self.client)
             .await?;
 
         Ok(())
@@ -252,8 +223,10 @@ impl_service! {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
-                        if cmd.data.name.as_str() == "top" {
-                            return self.command(&*cmd).await;
+                        let args = Arguments::new(&*cmd);
+
+                        if args.name() == "top" {
+                            return self.command(args).await;
                         }
                     }
                     _ => (),

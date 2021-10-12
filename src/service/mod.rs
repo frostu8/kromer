@@ -2,10 +2,11 @@
 
 mod cons;
 
-pub use anyhow::Error;
+pub use cons::Cons;
 pub use twilight_model::gateway::event::Event;
+pub use anyhow::Error;
 
-pub use cons::{Cons, ConsFuture};
+use twilight_standby::Standby;
 
 use std::future::Future;
 
@@ -24,13 +25,18 @@ pub trait Service<'f> {
 }
 
 /// A collection of services.
-#[derive(Default)]
-pub struct Services<T>(T);
+pub struct Services<T> { 
+    standby: Standby,
+    service: T,
+}
 
 impl Services<()> {
     /// Create a new `Services` instance.
-    pub fn new() -> Services<()> {
-        Services::default()
+    pub fn new(standby: Standby) -> Services<()> {
+        Services {
+            standby,
+            service: (),
+        }
     }
 
     /// Add a service to the service collection.
@@ -38,7 +44,10 @@ impl Services<()> {
     where
         S: for<'a> Service<'a> + Send + Sync + Clone + 'static,
     {
-        Services(service)
+        Services {
+            service,
+            standby: self.standby,
+        }
     }
 }
 
@@ -51,7 +60,10 @@ where
     where
         S: for<'a> Service<'a> + Send + Sync + Clone + 'static,
     {
-        Services(Cons::new(self.0, service))
+        Services {
+            service: Cons::new(self.service, service),
+            standby: self.standby,
+        }
     }
 
     /// Runs the services for each event in the stream.
@@ -71,7 +83,10 @@ where
                 _ => (),
             }
 
-            let service = self.0.clone();
+            // handle standby
+            self.standby.process(&ev);
+
+            let service = self.service.clone();
 
             tokio::spawn(async move {
                 service.handle(&ev).await;

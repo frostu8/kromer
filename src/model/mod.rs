@@ -15,7 +15,7 @@ use sqlx::{
 
 use twilight_model::channel::ReactionType;
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Display, Debug, Formatter};
 use std::mem;
 use std::ops::Deref;
 
@@ -24,6 +24,7 @@ use std::ops::Deref;
 /// Because a Discord emoji may also be custom, it doesn't make sense to store
 /// the codepoint as an INTEGER in your SQL database of choice. Instead, we use
 /// a BIGINT and switch between the last bit.
+#[derive(Clone, Copy)]
 pub enum Emoji {
     Unicode(char),
     Custom(u64),
@@ -49,6 +50,15 @@ impl Debug for Emoji {
                 Emoji::Unicode(ch) => f.debug_tuple("Emoji::Unicode").field(ch).finish(),
                 Emoji::Custom(id) => f.debug_tuple("Emoji::Unicode").field(id).finish(),
             }
+        }
+    }
+}
+
+impl Display for Emoji {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Emoji::Unicode(ch) => write!(f, "{}", ch),
+            Emoji::Custom(id) => write!(f, "<:emoji:{}>", id),
         }
     }
 }

@@ -50,6 +50,15 @@ pub struct Message {
 }
 
 impl Message {
+    /// Create a new `Message`.
+    ///
+    /// This does nothing on its own until you use any of the database
+    /// functions like [`Message::create`].
+    #[must_use = "`Message` does nothing on its own"]
+    pub fn new(guild_id: GuildId, message_id: MessageId, channel_id: ChannelId) -> Message {
+        Message { guild_id, message_id, channel_id }
+    }
+
     /// Create a new [`ReactionRole`] on this message.
     pub async fn create<'a, E>(
         &self,
@@ -83,6 +92,13 @@ impl Message {
 pub enum CreateError {
     AlreadyExists,
     Other(Error),
+}
+
+impl CreateError {
+    /// If the error occured because the entry already exists.
+    pub fn exists(&self) -> bool {
+        matches!(self, CreateError::AlreadyExists)
+    }
 }
 
 impl From<Error> for CreateError {

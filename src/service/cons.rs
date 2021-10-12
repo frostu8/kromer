@@ -1,12 +1,9 @@
 use super::{Event, Service};
 
-use pin_project::pin_project;
-
-use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-/// Two services types executed one after the other.
+/// Two services types executed at the same time.
 #[derive(Clone)]
 pub struct Cons<T, U>(T, U);
 
@@ -19,67 +16,59 @@ impl<T, U> Cons<T, U> {
 impl<'f, T, U> Service<'f> for Cons<T, U>
 where
     T: Service<'f> + Send + Sync,
-    U: Service<'f> + Send + Sync + 'f,
+    U: Service<'f> + Send + Sync,
 {
-    type Future = ConsFuture<'f, T::Future, U>;
+    type Future = Future<T::Future, U::Future>;
 
     fn handle(&'f self, ev: &'f Event) -> Self::Future {
-        ConsFuture(State::First(self.0.handle(ev), &self.1, ev))
+        Future::new(self.0.handle(ev), self.1.handle(ev))
     }
 }
 
-/// A future returned by [`Cons`].
-#[pin_project]
-pub struct ConsFuture<'f, TF, U>(#[pin] State<'f, TF, U>)
-where
-    TF: Future<Output = ()>,
-    U: Service<'f>;
+pub struct Future<F, G>(Option<F>, Option<G>);
 
-impl<'f, TF, U> Future for ConsFuture<'f, TF, U>
+impl<F, G> Future<F, G> {
+    pub fn new(fut1: F, fut2: G) -> Future<F, G> {
+        Future(Some(fut1), Some(fut2))
+    }
+}
+
+impl<'f, F, G> std::future::Future for Future<F, G>
 where
-    TF: Future<Output = ()>,
-    U: Service<'f>,
+    F: std::future::Future<Output = ()>,
+    G: std::future::Future<Output = ()>,
 {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        self.project().0.poll(cx)
+        // SAFETY: we have the only pin mut ref, and the following function
+        // calls don't move the references
+        let Self(fut1, fut2) = unsafe { self.get_unchecked_mut() };
+
+        run_optional_future(fut1, cx);
+        run_optional_future(fut2, cx);
+
+        if fut1.is_none() && fut2.is_none() {
+            Poll::Ready(())
+        } else {
+            Poll::Pending
+        }
     }
 }
 
-#[pin_project(project = StateProj)]
-enum State<'f, TF, U>
+fn run_optional_future<F>(fut: &mut Option<F>, cx: &mut Context)
 where
-    TF: Future<Output = ()>,
-    U: Service<'f>,
+    F: std::future::Future<Output = ()>,
 {
-    First(#[pin] TF, &'f U, &'f Event),
-    Second(#[pin] U::Future),
-}
-
-impl<'f, TF, U> Future for State<'f, TF, U>
-where
-    TF: Future<Output = ()>,
-    U: Service<'f>,
-{
-    type Output = ();
-
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        loop {
-            match self.as_mut().project() {
-                StateProj::First(fut, next, event) => {
-                    match fut.poll(cx) {
-                        // execute next future
-                        Poll::Ready(()) => {
-                            let fut = next.handle(event);
-
-                            self.set(State::Second(fut))
-                        }
-                        Poll::Pending => return Poll::Pending,
-                    }
-                }
-                StateProj::Second(fut) => return fut.poll(cx),
+    if let Some(inner) = fut {
+        unsafe {
+            match Pin::new_unchecked(inner).poll(cx) {
+                // SAFETY: this is okay, because we're running the destructor 
+                // in-place
+                Poll::Ready(()) => *fut = None,
+                Poll::Pending => (),
             }
         }
     }
 }
+
