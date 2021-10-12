@@ -1,4 +1,4 @@
-<img src="https://raw.githubusercontent.com/frostu8/kromer/main/kromer.png" alt="kromer.png"/>
+![kromer.png](https://raw.githubusercontent.com/frostu8/kromer/main/kromer.png)
 
 A cool Discord bot for cool servers.
 
@@ -39,9 +39,10 @@ Are you tired of all the DELTARUNE propaganda in the official bot? Why not
 # Hosting `kromer`
 Not only can you host kromer, but you are encouraged to! Feel free to poke
 around at the internals while you're at it, but by no means it is required.
-What *is* required is some basic shell knowledge, a
-[**Discord application** set up with a **bot account**][1], [**PostgreSQL**][2]
-and some of your time and love 🥰.
+What *is* required is some basic shell knowledge,
+[a `kromer` binary](#compiling-kromer), a
+[**Discord application** set up with a **bot account**][1], a running
+[**PostgreSQL**][2] server, and some of your time and love 🥰.
 
 Once you got everything fired up, you'll need to set these environment 
 variables:
@@ -53,10 +54,10 @@ variables:
   "**Bot**" section of [your application][1]. If it wasn't apparent enough,
   this **should be kept** ***very*** **secret**.
 
-Once you've set those environment variables, just run the bot and watch it go!
-It will automatically set up the database and initialize the global commands.
-It takes an hour at most to initialize the global commands, but once that's
-complete, you'll be raring to go!
+Once you've set those environment variables, just run the binary and watch it
+go! It will automatically set up the database and initialize the global
+commands. It takes an hour at most to initialize the global commands, but once
+that's complete, you'll be raring to go!
 
 ## Hosting using Docker
 Docker is a containerization platform. `kromer` is built with this in mind, and
@@ -96,6 +97,16 @@ services:
       - spamton
 ```
 
+# Compiling `kromer`
+Compiling `kromer` is exactly like compiling any other old Rust binary, but
+`kromer` uses some experimental, nightly Rust features, specifically
+[`type_alias_impl_trait`], so you need to compile the binary with a nightly
+Rust compiler. Otherwise, it's just one command:
+
+```sh
+cargo build --release
+```
+
 ## License
 This project is licensed under `The Unlicense`, which is just a fancy way of
 saying "do absolutely anything you want with my code, no permission or annoying
@@ -107,4 +118,4 @@ as long as my code is making someone's day, I'm happy.
 [3]: https://www.postgresql.org/docs/9.3/libpq-connect.html#AEN39692
 
 [`Dockerfile`]: https://github.com/frostu8/kromer/blob/main/Dockerfile
-
+[`type_alias_impl_trait`]: https://github.com/rust-lang/rust/issues/63063
