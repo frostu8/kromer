@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/frostu8/kromer/main/kromer.png" alt="kromer.png"/>
+
 A cool Discord bot for cool servers.
 
 Discord is an open, free platform. So why should we continue paying to make our
@@ -18,10 +20,10 @@ Features:
 * **Server levelling system**  
   Send messages to increase your Kromer balance, and compare yourself with
   others to see who's the most active member.
-* **Reaction roles**
+* **Reaction roles**  
   Allow members to self-assign themselves some roles through a reaction on a
   message.
-* **Up-to-date with the latest Discord trends**
+* **Up-to-date with the latest Discord trends**  
   The Discord developers were nice enough to give bots a whole bunch of tools
   that make bots feel like an *integration* rather than a *hack*, and this bot
   intends on using all of those features. Users shouldn't have to enable
