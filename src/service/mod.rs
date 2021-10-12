@@ -1,4 +1,5 @@
-//! The different, independent components of the Kromer ecosystem.
+//! Service framework that encourages hyper-modularized code, and provides
+//! extremely ergonomic and quick methods of implemeenting modules.
 
 mod cons;
 pub mod context;
