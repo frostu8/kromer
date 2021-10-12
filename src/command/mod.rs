@@ -2,11 +2,9 @@
 
 pub mod chat;
 
+use twilight_model::application::callback::{CallbackData, InteractionResponse};
 use twilight_model::channel::message::{AllowedMentions, MessageFlags};
 use twilight_model::id::InteractionId;
-use twilight_model::application::callback::{
-    CallbackData, InteractionResponse,
-};
 
 use twilight_http::Client;
 
@@ -80,11 +78,7 @@ impl<'a> Response<'a> {
             req = req.ephemeral(flags.contains(MessageFlags::EPHEMERAL));
         }
 
-        req
-            .exec()
-            .await
-            .map(|_| ())
-            .map_err(From::from)
+        req.exec().await.map(|_| ()).map_err(From::from)
     }
 }
 
@@ -92,4 +86,3 @@ pub enum ResponseType {
     Initial,
     Followup,
 }
-

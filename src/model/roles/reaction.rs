@@ -56,7 +56,11 @@ impl Message {
     /// functions like [`Message::create`].
     #[must_use = "`Message` does nothing on its own"]
     pub fn new(guild_id: GuildId, message_id: MessageId, channel_id: ChannelId) -> Message {
-        Message { guild_id, message_id, channel_id }
+        Message {
+            guild_id,
+            message_id,
+            channel_id,
+        }
     }
 
     /// Create a new [`ReactionRole`] on this message.

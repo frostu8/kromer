@@ -1,12 +1,12 @@
 //! The different, independent components of the Kromer ecosystem.
 
-pub mod context;
 mod cons;
+pub mod context;
 
+pub use anyhow::Error;
 pub use cons::Cons;
 pub use context::Context;
 pub use twilight_model::gateway::event::Event;
-pub use anyhow::Error;
 
 use std::future::Future;
 
@@ -28,7 +28,7 @@ pub trait Service<'f> {
 ///
 /// Each service will be executed in parallel, so no need to worry about a
 /// handler blocking other handlers!
-pub struct Services<T> { 
+pub struct Services<T> {
     cx: Context,
     service: T,
 }
@@ -36,10 +36,7 @@ pub struct Services<T> {
 impl Services<()> {
     /// Create a new `Services` instance.
     pub fn new(cx: Context) -> Services<()> {
-        Services {
-            cx,
-            service: (),
-        }
+        Services { cx, service: () }
     }
 
     /// Add a service to the service collection.
@@ -113,7 +110,7 @@ macro_rules! impl_service {
     } => {
         impl $ty {
             async fn __handle(
-                $self_ident: &Self, 
+                $self_ident: &Self,
                 $cx_ident: $cx_ty,
                 $ev_ident: $ev_ty,
             ) -> ::std::result::Result<(), $err_ty> {
@@ -137,5 +134,3 @@ macro_rules! impl_service {
         }
     }
 }
-
-

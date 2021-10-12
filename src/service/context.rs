@@ -1,9 +1,9 @@
 //! The executing context of an event.
 
-use twilight_model::id::ApplicationId;
-use twilight_http::Client;
-use twilight_standby::Standby;
 use sqlx::{pool::Pool, postgres::Postgres};
+use twilight_http::Client;
+use twilight_model::id::ApplicationId;
+use twilight_standby::Standby;
 
 use std::ops::Deref;
 
@@ -54,4 +54,3 @@ impl Deref for Context {
         &self.standby
     }
 }
-

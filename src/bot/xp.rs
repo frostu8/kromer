@@ -1,9 +1,9 @@
 //! Diminishing "experience" tracking services.
 
-use crate::model::xp::{Guild, Record};
-use crate::service::{Error, Service, Context};
 use crate::command::chat::Arguments;
 use crate::impl_service;
+use crate::model::xp::{Guild, Record};
+use crate::service::{Context, Error, Service};
 
 use std::fmt::Write;
 use std::sync::Arc;
@@ -119,11 +119,7 @@ impl RankCommand {
             user.score(),
         );
 
-        command
-            .respond()
-            .content(content)
-            .exec(cx.http())
-            .await?;
+        command.respond().content(content).exec(cx.http()).await?;
 
         Ok(())
     }
@@ -166,11 +162,7 @@ impl TopCommand {
         // create a response
         let content = create_top_message(&top);
 
-        command
-            .respond()
-            .content(content)
-            .exec(cx.http())
-            .await?;
+        command.respond().content(content).exec(cx.http()).await?;
 
         Ok(())
     }

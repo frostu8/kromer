@@ -15,7 +15,7 @@ use sqlx::{
 
 use twilight_model::channel::ReactionType;
 
-use std::fmt::{self, Display, Debug, Formatter};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::mem;
 use std::ops::Deref;
 

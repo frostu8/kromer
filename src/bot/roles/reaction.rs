@@ -1,18 +1,18 @@
 //! Reaction role services.
 
+use crate::command::chat::Arguments;
+use crate::impl_service;
 use crate::model::roles::reaction::{Message, ReactionRole};
 use crate::model::Emoji;
-use crate::command::chat::Arguments;
-use crate::service::{Error, Service, Context};
-use crate::impl_service;
+use crate::service::{Context, Error, Service};
 
 use twilight_http::api_error::{ApiError, ErrorCode};
 use twilight_http::request::AuditLogReason;
 
-use twilight_model::id::RoleId;
+use twilight_model::application::interaction::Interaction;
 use twilight_model::channel::Reaction;
 use twilight_model::gateway::event::Event;
-use twilight_model::application::interaction::Interaction;
+use twilight_model::id::RoleId;
 
 use twilight_mention::Mention;
 
@@ -140,7 +140,8 @@ impl CreateReactionRole {
 
         let user_id = command.user_id();
 
-        let role_id = command.get_string("role")?
+        let role_id = command
+            .get_string("role")?
             .ok_or(anyhow!("role is missing for /reactionroles add!"))?
             .parse::<u64>()
             .map(RoleId)?;
@@ -151,18 +152,16 @@ impl CreateReactionRole {
             .content(
                 "react with the emoji of your choice to the message of your \
                  choice to set up the reaction role!. ⚠️ this will expire in \
-                 a minute!"
+                 a minute!",
             )
             .ephemeral()
             .exec(cx.http())
             .await?;
 
         // wait for a reaction...
-        let reaction = cx.wait_for(guild_id, move |event: &Event| {
-            match event {
-                Event::ReactionAdd(reaction) => reaction.0.user_id == user_id,
-                _ => false,
-            }
+        let reaction = cx.wait_for(guild_id, move |event: &Event| match event {
+            Event::ReactionAdd(reaction) => reaction.0.user_id == user_id,
+            _ => false,
         });
 
         // ...or the timeout
@@ -187,8 +186,8 @@ impl CreateReactionRole {
 
                 // cool! we now have everything needed to create a rr!
                 let message = Message::new(
-                    guild_id, 
-                    reaction.message_id, 
+                    guild_id,
+                    reaction.message_id,
                     reaction.channel_id,
                 );
 
@@ -264,4 +263,3 @@ impl_service! {
         }
     }
 }
-

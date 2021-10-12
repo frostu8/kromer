@@ -23,5 +23,5 @@ pub const GIT_HASH: &str = env!("GIT_HASH");
 /// The current repository mirror.
 ///
 /// May or may not exist.
-pub const GIT_REPOSITORY: &str = concat!("https://github.com/frostu8/kromer/tree/", env!("GIT_HASH"));
-
+pub const GIT_REPOSITORY: &str =
+    concat!("https://github.com/frostu8/kromer/tree/", env!("GIT_HASH"));

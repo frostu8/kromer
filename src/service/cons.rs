@@ -63,7 +63,7 @@ where
     if let Some(inner) = fut {
         unsafe {
             match Pin::new_unchecked(inner).poll(cx) {
-                // SAFETY: this is okay, because we're running the destructor 
+                // SAFETY: this is okay, because we're running the destructor
                 // in-place
                 Poll::Ready(()) => *fut = None,
                 Poll::Pending => (),
@@ -71,4 +71,3 @@ where
         }
     }
 }
-

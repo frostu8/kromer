@@ -9,13 +9,8 @@ use kromer::service::{Context, Services};
 use twilight_gateway::cluster::{Cluster, ShardScheme};
 use twilight_http::Client;
 use twilight_model::application::command::{
-    BaseCommandOptionData, 
-    OptionsCommandOptionData,
-    permissions::{
-        CommandPermissions,
-        CommandPermissionsType,
-    },
-    CommandOption,
+    permissions::{CommandPermissions, CommandPermissionsType},
+    BaseCommandOptionData, CommandOption, OptionsCommandOptionData,
 };
 use twilight_model::gateway::Intents;
 use twilight_model::id::GuildId;
@@ -274,9 +269,12 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
     if let Some(guild_id) = guild_id {
         info!("setting up permissions");
 
-        let commands = client.get_guild_commands(guild_id)?
-            .exec().await?
-            .model().await?;
+        let commands = client
+            .get_guild_commands(guild_id)?
+            .exec()
+            .await?
+            .model()
+            .await?;
 
         let reactionroles_cmd = commands
             .iter()
@@ -286,12 +284,13 @@ async fn main_migrate(options: Opt, migrate: Migrate) -> Result<()> {
         client
             .set_command_permissions(
                 guild_id,
-                &[
-                    (reactionroles_cmd.id.unwrap(), CommandPermissions {
+                &[(
+                    reactionroles_cmd.id.unwrap(),
+                    CommandPermissions {
                         id: CommandPermissionsType::User(155785208556290048.into()),
                         permission: true,
-                    })
-                ],
+                    },
+                )],
             )?
             .exec()
             .await?;
@@ -324,4 +323,3 @@ async fn create_client(token: impl Into<String>) -> Result<Client> {
 
     Ok(client)
 }
-

@@ -1,17 +1,16 @@
 //! The actual services used by the bot.
 
-pub mod roles;
 pub mod info;
+pub mod roles;
 pub mod xp;
 
-use twilight_model::id::ApplicationId;
 use twilight_http::Client;
+use twilight_model::id::ApplicationId;
 
 /// Gets the application id associated with the token.
-pub async fn fetch_application_id(
-    client: &Client,
-) -> Result<ApplicationId, anyhow::Error> {
-    client.current_user_application()
+pub async fn fetch_application_id(client: &Client) -> Result<ApplicationId, anyhow::Error> {
+    client
+        .current_user_application()
         .exec()
         .await?
         .model()
@@ -27,4 +26,3 @@ pub fn invite_link(id: ApplicationId) -> String {
         id.0,
     )
 }
-

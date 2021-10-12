@@ -1,12 +1,16 @@
 //! Info commands.
 
-use crate::service::{Error, Service, Context};
 use crate::command::chat::Arguments;
 use crate::impl_service;
+use crate::service::{Context, Error, Service};
 
 use twilight_model::application::{
     callback::{CallbackData, InteractionResponse},
-    component::{button::{Button, ButtonStyle}, action_row::ActionRow, Component},
+    component::{
+        action_row::ActionRow,
+        button::{Button, ButtonStyle},
+        Component,
+    },
     interaction::Interaction,
 };
 use twilight_model::channel::message::MessageFlags;
@@ -23,8 +27,7 @@ impl InfoCommand {
 
         let response = InteractionResponse::ChannelMessageWithSource(self.make_info_response(cx));
 
-        cx
-            .http()
+        cx.http()
             .interaction_callback(command.id(), command.token(), &response)
             .exec()
             .await?;
@@ -62,7 +65,7 @@ impl InfoCommand {
                 std::iter::once(Component::ActionRow(ActionRow {
                     components: buttons,
                 }))
-                    .collect()
+                .collect(),
             ),
             embeds: Vec::new(),
             flags: Some(MessageFlags::EPHEMERAL),
@@ -92,4 +95,3 @@ impl_service! {
         }
     }
 }
-

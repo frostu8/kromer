@@ -1,9 +1,9 @@
 //! Types to make chat commands less of a pain in the butt.
 
-use twilight_model::id::{InteractionId, GuildId, UserId};
 use twilight_model::application::interaction::application_command::{
-    CommandDataOption, ApplicationCommand,
+    ApplicationCommand, CommandDataOption,
 };
+use twilight_model::id::{GuildId, InteractionId, UserId};
 
 use super::{Response, ResponseType};
 
@@ -14,7 +14,7 @@ use std::num::ParseIntError;
 /// An easy way to index into a chat input interaction's arguments.
 pub struct Arguments<'a> {
     top: &'a ApplicationCommand,
-    options: &'a [CommandDataOption]
+    options: &'a [CommandDataOption],
 }
 
 impl<'a> Arguments<'a> {
@@ -51,7 +51,9 @@ impl<'a> Arguments<'a> {
     /// # Panics
     /// Panics if both `member` and `user` are missing.
     pub fn user_id(&self) -> UserId {
-        self.top.member.as_ref()
+        self.top
+            .member
+            .as_ref()
             .and_then(|member| member.user.as_ref())
             .or(self.top.user.as_ref())
             .map(|user| user.id)
@@ -66,7 +68,7 @@ impl<'a> Arguments<'a> {
                     top: self.top,
                     options,
                 }),
-                opt => Err(ArgError::InvalidType(opt.kind()))
+                opt => Err(ArgError::InvalidType(opt.kind())),
             })
             .transpose()
     }
@@ -76,7 +78,7 @@ impl<'a> Arguments<'a> {
         self.get(name)
             .map(|s| match s {
                 CommandDataOption::String { value, .. } => Ok(value.as_ref()),
-                opt => Err(ArgError::InvalidType(opt.kind()))
+                opt => Err(ArgError::InvalidType(opt.kind())),
             })
             .transpose()
     }
@@ -92,10 +94,7 @@ impl<'a> Arguments<'a> {
     }
 
     fn get(&self, name: &str) -> Option<&'a CommandDataOption> {
-        self
-            .options
-            .iter()
-            .find(|option| option.name() == name)
+        self.options.iter().find(|option| option.name() == name)
     }
 }
 
@@ -131,4 +130,3 @@ impl From<ParseIntError> for ArgError {
         ArgError::ParseInt(err)
     }
 }
-
