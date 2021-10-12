@@ -33,9 +33,38 @@ Features:
   Discord library. Nothing stopping you from throwing this up on a Raspberry Pi
   and hosting possibly hundreds of servers... *probably*.
 
+Are you tired of all the DELTARUNE propaganda in the official bot? Why not
+[host your own?](#hosting-kromer)
+
+# Hosting `kromer`
+Not only can you host kromer, but you are encouraged to! Feel free to poke
+around at the internals while you're at it, but by no means it is required.
+What *is* required is some basic shell knowledge, a
+[**Discord application** set up with a **bot acount**][1], [**PostgreSQL**][2]
+and some of your time and love 🥰.
+
+Once you got everything fired up, you'll need to set these environment 
+variables:
+
+* `DATABASE_URL`: The connection uri used by the bot to connect to the
+  database. See [this page][3] if you don't know how to write a connection uri,
+  or you're just stuck. Don't worry, it happens to the best of us.
+* `DISCORD_TOKEN`: The token of your Discord bot. This should be under the
+  "**Bot**" section of [your application][1]. If it wasn't apparent enough,
+  this **should be kept** ***very*** **secret**.
+
+Once you've set those environment variables, just run the bot and watch it go!
+It will automatically set up the database and initialize the global commands.
+It takes an hour at most to initialize the global commands, but once that's
+complete, you'll be raring to go!
+
 ## License
 This project is licensed under `The Unlicense`, which is just a fancy way of
 saying "do absolutely anything you want with my code, no permission or annoying
 license management necessary." Reference it, copy it, maim it, or even sell it;
 as long as my code is making someone's day, I'm happy.
+
+[1]: https://discord.com/developers/applications
+[2]: https://www.postgresql.org/
+[3]: https://www.postgresql.org/docs/9.3/libpq-connect.html#AEN39692
 
