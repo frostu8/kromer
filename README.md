@@ -58,6 +58,44 @@ It will automatically set up the database and initialize the global commands.
 It takes an hour at most to initialize the global commands, but once that's
 complete, you'll be raring to go!
 
+## Hosting using Docker
+Docker is a containerization platform. `kromer` is built with this in mind, and
+includes a ready-to-build [`Dockerfile`] in case you want the power of
+containerizing your bot. Since the official bot runs on Docker, you can be sure
+that it's up to date.
+
+Example `docker-compose.yml` for `kromer`:
+
+```yaml
+version: '3.1'
+
+networks:
+  spamton:
+    external: true
+
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kromer
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    networks:
+      - spamton
+  bot:
+    build: kromer
+    restart: always
+    environment:
+      DISCORD_TOKEN: <discord token here>
+      DATABASE_URL: postgres://postgres:postgres@db/kromer
+    depends_on:
+      - db
+    networks:
+      - spamton
+```
+
 ## License
 This project is licensed under `The Unlicense`, which is just a fancy way of
 saying "do absolutely anything you want with my code, no permission or annoying
@@ -67,4 +105,6 @@ as long as my code is making someone's day, I'm happy.
 [1]: https://discord.com/developers/applications
 [2]: https://www.postgresql.org/
 [3]: https://www.postgresql.org/docs/9.3/libpq-connect.html#AEN39692
+
+[`Dockerfile`]: https://github.com/frostu8/kromer/blob/main/Dockerfile
 
