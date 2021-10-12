@@ -4,7 +4,7 @@ extern crate log;
 use std::env;
 
 use kromer::bot;
-use kromer::service::Services;
+use kromer::service::{Context, Services};
 
 use twilight_gateway::cluster::{Cluster, ShardScheme};
 use twilight_http::Client;
@@ -19,8 +19,6 @@ use twilight_model::application::command::{
 };
 use twilight_model::gateway::Intents;
 use twilight_model::id::GuildId;
-
-use twilight_standby::Standby;
 
 use anyhow::{anyhow, Result};
 use log::LevelFilter;
@@ -158,24 +156,14 @@ async fn main_run(_options: Opt, _run: Run) -> Result<()> {
         cluster_spawn.up().await;
     });
 
-    // create standby ref
-    let standby = Standby::new();
-
     // create and run our services
-    Services::new(standby.clone())
-        .add(bot::xp::Xp::new(db.clone()))
-        .add(bot::xp::RankCommand::new(db.clone(), client.clone()))
-        .add(bot::xp::TopCommand::new(db.clone(), client.clone()))
-        .add(bot::roles::reaction::ReactionRoles::new(
-            db.clone(),
-            client.clone(),
-        ))
-        .add(bot::roles::reaction::CreateReactionRole::new(
-            db.clone(),
-            client.clone(),
-            standby.clone(),
-        ))
-        .add(bot::info::InfoCommand::new(client.clone()))
+    Services::new(Context::new(client.clone(), db.clone()))
+        .add::<bot::xp::Xp>()
+        .add::<bot::xp::RankCommand>()
+        .add::<bot::xp::TopCommand>()
+        .add::<bot::roles::reaction::ReactionRoles>()
+        .add::<bot::roles::reaction::CreateReactionRole>()
+        .add::<bot::info::InfoCommand>()
         .run(events)
         .await;
 

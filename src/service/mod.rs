@@ -1,12 +1,12 @@
 //! The different, independent components of the Kromer ecosystem.
 
+pub mod context;
 mod cons;
 
 pub use cons::Cons;
+pub use context::Context;
 pub use twilight_model::gateway::event::Event;
 pub use anyhow::Error;
-
-use twilight_standby::Standby;
 
 use std::future::Future;
 
@@ -21,32 +21,35 @@ pub trait Service<'f> {
     type Future: Future<Output = ()> + Send + 'f;
 
     /// Handles a gateway event.
-    fn handle(&'f self, ev: &'f Event) -> Self::Future;
+    fn handle(&'f self, cx: &'f Context, ev: &'f Event) -> Self::Future;
 }
 
 /// A collection of services.
+///
+/// Each service will be executed in parallel, so no need to worry about a
+/// handler blocking other handlers!
 pub struct Services<T> { 
-    standby: Standby,
+    cx: Context,
     service: T,
 }
 
 impl Services<()> {
     /// Create a new `Services` instance.
-    pub fn new(standby: Standby) -> Services<()> {
+    pub fn new(cx: Context) -> Services<()> {
         Services {
-            standby,
+            cx,
             service: (),
         }
     }
 
     /// Add a service to the service collection.
-    pub fn add<S>(self, service: S) -> Services<S>
+    pub fn add<S>(self) -> Services<S>
     where
-        S: for<'a> Service<'a> + Send + Sync + Clone + 'static,
+        S: for<'a> Service<'a> + Default + Send + Sync + Clone + 'static,
     {
         Services {
-            service,
-            standby: self.standby,
+            service: S::default(),
+            cx: self.cx,
         }
     }
 }
@@ -56,13 +59,13 @@ where
     T: for<'a> Service<'a> + Send + Sync + Clone + 'static,
 {
     /// Add a service to the service collection.
-    pub fn add<S>(self, service: S) -> Services<Cons<T, S>>
+    pub fn add<S>(self) -> Services<Cons<T, S>>
     where
-        S: for<'a> Service<'a> + Send + Sync + Clone + 'static,
+        S: for<'a> Service<'a> + Default + Send + Sync + Clone + 'static,
     {
         Services {
-            service: Cons::new(self.service, service),
-            standby: self.standby,
+            service: Cons::new(self.service, S::default()),
+            cx: self.cx,
         }
     }
 
@@ -84,12 +87,13 @@ where
             }
 
             // handle standby
-            self.standby.process(&ev);
+            self.cx.process(&ev);
 
+            let cx = self.cx.clone();
             let service = self.service.clone();
 
             tokio::spawn(async move {
-                service.handle(&ev).await;
+                service.handle(&cx, &ev).await;
             });
         }
     }
@@ -103,13 +107,14 @@ where
 macro_rules! impl_service {
     {
         impl Service for $ty:path {
-            async fn handle(&$self_ident:ident, $ev_ident:ident: $ev_ty:ty) -> Result<(), $err_ty:path>
+            async fn handle(&$self_ident:ident, $cx_ident:ident: $cx_ty:ty, $ev_ident:ident: $ev_ty:ty) -> Result<(), $err_ty:path>
             $body:tt
         }
     } => {
         impl $ty {
             async fn __handle(
                 $self_ident: &Self, 
+                $cx_ident: $cx_ty,
                 $ev_ident: $ev_ty,
             ) -> ::std::result::Result<(), $err_ty> {
                 $body
@@ -119,9 +124,9 @@ macro_rules! impl_service {
         impl<'f> Service<'f> for $ty {
             type Future = impl ::std::future::Future<Output = ()> + 'f;
 
-            fn handle(&'f self, ev: &'f crate::service::Event) -> Self::Future {
+            fn handle(&'f self, cx: &'f crate::service::Context, ev: &'f crate::service::Event) -> Self::Future {
                 async move {
-                    let res = Self::__handle(self, ev).await;
+                    let res = Self::__handle(self, cx, ev).await;
 
                     if let Err(err) = res {
                         // print error inf

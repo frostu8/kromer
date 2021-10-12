@@ -3,14 +3,11 @@
 use crate::model::roles::reaction::{Message, ReactionRole};
 use crate::model::Emoji;
 use crate::command::chat::Arguments;
-use crate::service::{Error, Service};
+use crate::service::{Error, Service, Context};
 use crate::impl_service;
-
-use sqlx::postgres::PgPool;
 
 use twilight_http::api_error::{ApiError, ErrorCode};
 use twilight_http::request::AuditLogReason;
-use twilight_http::Client;
 
 use twilight_model::id::RoleId;
 use twilight_model::channel::Reaction;
@@ -18,8 +15,6 @@ use twilight_model::gateway::event::Event;
 use twilight_model::application::interaction::Interaction;
 
 use twilight_mention::Mention;
-
-use twilight_standby::Standby;
 
 use tokio::select;
 use tokio::time::sleep;
@@ -29,29 +24,22 @@ use std::time::Duration;
 use anyhow::anyhow;
 
 /// Reaction role service.
-#[derive(Clone)]
-pub struct ReactionRoles {
-    db: PgPool,
-    client: Client,
-}
+#[derive(Default, Clone)]
+pub struct ReactionRoles;
 
 impl ReactionRoles {
-    pub fn new(db: PgPool, client: Client) -> ReactionRoles {
-        ReactionRoles { db, client }
-    }
-
-    async fn reaction_add(&self, reaction: &Reaction) -> Result<(), Error> {
+    async fn reaction_add(&self, cx: &Context, reaction: &Reaction) -> Result<(), Error> {
         let guild_id = match reaction.guild_id {
             Some(id) => id,
             // if we are not in a guild, silently discard the reaction event
             None => return Ok(()),
         };
 
-        match self.get_reaction_role(reaction).await? {
+        match self.get_reaction_role(cx, reaction).await? {
             // this is a reaction for a role!
             Some(rr) => {
-                let res = self
-                    .client
+                let res = cx
+                    .http()
                     .add_guild_member_role(guild_id, reaction.user_id, rr.role_id())
                     .reason("reaction role add")?
                     .exec()
@@ -77,18 +65,18 @@ impl ReactionRoles {
         }
     }
 
-    async fn reaction_remove(&self, reaction: &Reaction) -> Result<(), Error> {
+    async fn reaction_remove(&self, cx: &Context, reaction: &Reaction) -> Result<(), Error> {
         let guild_id = match reaction.guild_id {
             Some(id) => id,
             // if we are not in a guild, silently discard the reaction event
             None => return Ok(()),
         };
 
-        match self.get_reaction_role(reaction).await? {
+        match self.get_reaction_role(cx, reaction).await? {
             // this is a reaction for a role!
             Some(rr) => {
-                let res = self
-                    .client
+                let res = cx
+                    .http()
                     .remove_guild_member_role(guild_id, reaction.user_id, rr.role_id())
                     .reason("reaction role remove")?
                     .exec()
@@ -116,22 +104,23 @@ impl ReactionRoles {
 
     async fn get_reaction_role(
         &self,
+        cx: &Context,
         reaction: &Reaction,
     ) -> Result<Option<ReactionRole>, sqlx::Error> {
         let message_id = reaction.message_id;
         let emoji: Emoji = reaction.emoji.clone().into();
 
         // find the related reaction role
-        ReactionRole::get(&self.db, message_id, emoji).await
+        ReactionRole::get(cx.db(), message_id, emoji).await
     }
 }
 
 impl_service! {
     impl Service for ReactionRoles {
-        async fn handle(&self, ev: &Event) -> Result<(), Error> {
+        async fn handle(&self, cx: &Context, ev: &Event) -> Result<(), Error> {
             match ev {
-                Event::ReactionAdd(reaction) => self.reaction_add(reaction).await,
-                Event::ReactionRemove(reaction) => self.reaction_remove(reaction).await,
+                Event::ReactionAdd(reaction) => self.reaction_add(cx, reaction).await,
+                Event::ReactionRemove(reaction) => self.reaction_remove(cx, reaction).await,
                 _ => Ok(()),
             }
         }
@@ -139,19 +128,11 @@ impl_service! {
 }
 
 /// Allows easy creation of reaction roles.
-#[derive(Clone)]
-pub struct CreateReactionRole {
-    db: PgPool,
-    client: Client,
-    standby: Standby,
-}
+#[derive(Default, Clone)]
+pub struct CreateReactionRole;
 
 impl CreateReactionRole {
-    pub fn new(db: PgPool, client: Client, standby: Standby) -> CreateReactionRole {
-        CreateReactionRole { db, client, standby }
-    }
-
-    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
+    async fn command(&self, cx: &Context, command: Arguments<'_>) -> Result<(), Error> {
         let guild_id = match command.guild_id() {
             Some(guild_id) => guild_id,
             None => return Err(anyhow!("guild_id is missing")),
@@ -173,11 +154,11 @@ impl CreateReactionRole {
                  a minute!"
             )
             .ephemeral()
-            .exec(&self.client)
+            .exec(cx.http())
             .await?;
 
         // wait for a reaction...
-        let reaction = self.standby.wait_for(guild_id, move |event: &Event| {
+        let reaction = cx.wait_for(guild_id, move |event: &Event| {
             match event {
                 Event::ReactionAdd(reaction) => reaction.0.user_id == user_id,
                 _ => false,
@@ -193,7 +174,7 @@ impl CreateReactionRole {
                     .followup()
                     .content("request has expired! try `/reactionroles add` again to continue")
                     .ephemeral()
-                    .exec(&self.client)
+                    .exec(cx.http())
                     .await?;
             }
             event = reaction => {
@@ -211,7 +192,7 @@ impl CreateReactionRole {
                     reaction.channel_id,
                 );
 
-                let res = message.create(&self.db, role_id, emoji).await;
+                let res = message.create(cx.db(), role_id, emoji).await;
 
                 match res {
                     Ok(_) => {
@@ -227,12 +208,12 @@ impl CreateReactionRole {
                             .followup()
                             .content(content)
                             .ephemeral()
-                            .exec(&self.client)
+                            .exec(cx.http())
                             .await?;
                     }
                     Err(err) if err.exists() => {
                         // get the existing reaction role
-                        let rr = ReactionRole::get(&self.db, reaction.message_id, emoji)
+                        let rr = ReactionRole::get(cx.db(), reaction.message_id, emoji)
                             .await?
                             .expect("db told us a RR already exists, but we can't find it!");
 
@@ -247,7 +228,7 @@ impl CreateReactionRole {
                             .followup()
                             .content(content)
                             .ephemeral()
-                            .exec(&self.client)
+                            .exec(cx.http())
                             .await?;
                     }
                     Err(err) => return Err(err.into())
@@ -261,7 +242,7 @@ impl CreateReactionRole {
 
 impl_service! {
     impl Service for CreateReactionRole {
-        async fn handle(&self, ev: &Event) -> Result<(), Error> {
+        async fn handle(&self, cx: &Context, ev: &Event) -> Result<(), Error> {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
@@ -269,7 +250,7 @@ impl_service! {
 
                         if args.name() == "reactionroles" {
                             match args.get_subcommand("add")? {
-                                Some(args) => return self.command(args).await,
+                                Some(args) => return self.command(cx, args).await,
                                 None => (),
                             }
                         }

@@ -1,11 +1,9 @@
 //! Diminishing "experience" tracking services.
 
 use crate::model::xp::{Guild, Record};
-use crate::service::{Error, Service};
+use crate::service::{Error, Service, Context};
 use crate::command::chat::Arguments;
 use crate::impl_service;
-
-use sqlx::postgres::PgPool;
 
 use std::fmt::Write;
 use std::sync::Arc;
@@ -13,7 +11,6 @@ use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
 
-use twilight_http::Client;
 use twilight_model::application::interaction::Interaction;
 use twilight_model::channel::message::Message;
 use twilight_model::gateway::event::Event;
@@ -22,22 +19,32 @@ use twilight_model::id::{GuildId, UserId};
 use anyhow::anyhow;
 
 /// Experience awarding service.
-#[derive(Clone)]
-pub struct Xp {
-    db: PgPool,
-    cooldowns: Cooldowns,
-}
+#[derive(Default, Clone)]
+pub struct Xp(Arc<DashMap<(GuildId, UserId), Instant>>);
 
 impl Xp {
-    pub fn new(db: PgPool) -> Xp {
-        Xp {
-            db,
-            cooldowns: Cooldowns::new(),
+    /// Maximum experience a user can be awarded at once.
+    pub const MAX_EXP: i32 = 15;
+
+    /// Updates a [`Cooldown`] in the cooldowns table, returning a good amount
+    /// of exp to reward.
+    pub fn cooldown_update(&self, guild_id: GuildId, user_id: UserId) -> i32 {
+        let idx = (guild_id, user_id);
+        let now = Instant::now();
+
+        // swap instants
+        match self.0.insert(idx, now) {
+            Some(old) => match now.checked_duration_since(old) {
+                Some(duration) => exp(duration),
+                // this should not happen, but just in case.
+                None => 0,
+            },
+            None => Xp::MAX_EXP,
         }
     }
 
     /// Handles a message.
-    pub async fn handle_message(&self, msg: &Message) -> Result<(), Error> {
+    pub async fn process(&self, cx: &Context, msg: &Message) -> Result<(), Error> {
         // do not track bot messages
         if msg.author.bot {
             return Ok(());
@@ -53,10 +60,10 @@ impl Xp {
         let user_id = msg.author.id;
 
         // figure out how much exp to award to the user
-        let exp = self.cooldowns.update(guild_id, user_id);
+        let exp = self.cooldown_update(guild_id, user_id);
 
         // add experience to the user
-        Guild::new(guild_id).add(&self.db, user_id, exp).await?;
+        Guild::new(guild_id).add(cx.db(), user_id, exp).await?;
 
         Ok(())
     }
@@ -64,55 +71,21 @@ impl Xp {
 
 impl_service! {
     impl Service for Xp {
-        async fn handle(&self, ev: &Event) -> Result<(), Error> {
+        async fn handle(&self, cx: &Context, ev: &Event) -> Result<(), Error> {
             match ev {
-                Event::MessageCreate(msg) => self.handle_message(msg).await,
+                Event::MessageCreate(msg) => self.process(cx, msg).await,
                 _ => Ok(()),
             }
         }
     }
 }
 
-/// Maximum experience a user can be awarded at once.
-pub const MAX_EXP: i32 = 15;
-
-/// A table of cooldowns.
-#[derive(Clone, Default)]
-pub struct Cooldowns(Arc<DashMap<CooldownIndex, Instant>>);
-
-impl Cooldowns {
-    /// Create a new `Cooldowns`.
-    pub fn new() -> Cooldowns {
-        Cooldowns::default()
-    }
-
-    /// Updates a [`Cooldown`] in the cooldowns table, returning a good amount
-    /// of exp to reward.
-    pub fn update(&self, guild_id: GuildId, user_id: UserId) -> i32 {
-        let idx = CooldownIndex(guild_id, user_id);
-        let now = Instant::now();
-
-        // swap instants
-        match self.0.insert(idx, now) {
-            Some(old) => match now.checked_duration_since(old) {
-                Some(duration) => exp(duration),
-                // this should not happen, but just in case.
-                None => 0,
-            },
-            None => MAX_EXP,
-        }
-    }
-}
-
-#[derive(PartialEq, Eq, Hash)]
-struct CooldownIndex(GuildId, UserId);
-
 fn exp(duration: Duration) -> i32 {
     // get exp from duration
     let exp = duration.as_secs() as i32;
 
     // clamp exp
-    exp.min(MAX_EXP)
+    exp.min(Xp::MAX_EXP)
 }
 
 /// Service that enables the `/rank` command.
@@ -121,18 +94,11 @@ fn exp(duration: Duration) -> i32 {
 /// /rank - Gets the level and amount of experience a user has accumulated.
 ///     [user] - The user to check. If omitted, defaults to the user.
 /// ```
-#[derive(Clone)]
-pub struct RankCommand {
-    db: PgPool,
-    client: Client,
-}
+#[derive(Default, Clone)]
+pub struct RankCommand;
 
 impl RankCommand {
-    pub fn new(db: PgPool, client: Client) -> RankCommand {
-        RankCommand { db, client }
-    }
-
-    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
+    async fn command(&self, cx: &Context, command: Arguments<'_>) -> Result<(), Error> {
         // get guild id
         let guild_id = command.guild_id().ok_or(anyhow!("guild_id is missing"))?;
 
@@ -143,7 +109,7 @@ impl RankCommand {
         };
 
         // finally.... finally... find the exp for the specified user
-        let user = Guild::new(guild_id).get(&self.db, user_id).await?;
+        let user = Guild::new(guild_id).get(cx.db(), user_id).await?;
 
         // create a response
         let content = format!(
@@ -156,7 +122,7 @@ impl RankCommand {
         command
             .respond()
             .content(content)
-            .exec(&self.client)
+            .exec(cx.http())
             .await?;
 
         Ok(())
@@ -165,14 +131,14 @@ impl RankCommand {
 
 impl_service! {
     impl Service for RankCommand {
-        async fn handle(&self, ev: &Event) -> Result<(), Error> {
+        async fn handle(&self, cx: &Context, ev: &Event) -> Result<(), Error> {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
                         let args = Arguments::new(&*cmd);
 
                         if args.name() == "rank" {
-                            return self.command(args).await;
+                            return self.command(cx, args).await;
                         }
                     }
                     _ => (),
@@ -186,23 +152,16 @@ impl_service! {
 }
 
 /// Returns the exp leaders of a guild.
-#[derive(Clone)]
-pub struct TopCommand {
-    db: PgPool,
-    client: Client,
-}
+#[derive(Default, Clone)]
+pub struct TopCommand;
 
 impl TopCommand {
-    pub fn new(db: PgPool, client: Client) -> TopCommand {
-        TopCommand { db, client }
-    }
-
-    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
+    async fn command(&self, cx: &Context, command: Arguments<'_>) -> Result<(), Error> {
         // get guild id and role id
         let guild_id = command.guild_id().ok_or(anyhow!("guild_id is missing"))?;
 
         // get the top listing
-        let top = Guild::new(guild_id).top(&self.db, 10, 0).await?;
+        let top = Guild::new(guild_id).top(cx.db(), 10, 0).await?;
 
         // create a response
         let content = create_top_message(&top);
@@ -210,7 +169,7 @@ impl TopCommand {
         command
             .respond()
             .content(content)
-            .exec(&self.client)
+            .exec(cx.http())
             .await?;
 
         Ok(())
@@ -219,14 +178,14 @@ impl TopCommand {
 
 impl_service! {
     impl Service for TopCommand {
-        async fn handle(&self, ev: &Event) -> Result<(), Error> {
+        async fn handle(&self, cx: &Context, ev: &Event) -> Result<(), Error> {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
                         let args = Arguments::new(&*cmd);
 
                         if args.name() == "top" {
-                            return self.command(args).await;
+                            return self.command(cx, args).await;
                         }
                     }
                     _ => (),

@@ -20,8 +20,8 @@ where
 {
     type Future = Future<T::Future, U::Future>;
 
-    fn handle(&'f self, ev: &'f Event) -> Self::Future {
-        Future::new(self.0.handle(ev), self.1.handle(ev))
+    fn handle(&'f self, cx: &'f super::Context, ev: &'f Event) -> Self::Future {
+        Future::new(self.0.handle(cx, ev), self.1.handle(cx, ev))
     }
 }
 

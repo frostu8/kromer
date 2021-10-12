@@ -1,10 +1,9 @@
 //! Info commands.
 
-use crate::service::{Error, Service};
+use crate::service::{Error, Service, Context};
 use crate::command::chat::Arguments;
 use crate::impl_service;
 
-use twilight_http::Client;
 use twilight_model::application::{
     callback::{CallbackData, InteractionResponse},
     component::{button::{Button, ButtonStyle}, action_row::ActionRow, Component},
@@ -14,23 +13,18 @@ use twilight_model::channel::message::MessageFlags;
 use twilight_model::gateway::event::Event;
 
 /// The `/info` command.
-#[derive(Clone)]
-pub struct InfoCommand {
-    client: Client,
-}
+#[derive(Default, Clone)]
+pub struct InfoCommand;
 
 impl InfoCommand {
-    pub fn new(client: Client) -> InfoCommand {
-        InfoCommand { client }
-    }
-    
-    async fn command(&self, command: Arguments<'_>) -> Result<(), Error> {
+    async fn command(&self, cx: &Context, command: Arguments<'_>) -> Result<(), Error> {
         // we don't really care about anything about the command besides the
         // id and token so we can respond.
 
-        let response = InteractionResponse::ChannelMessageWithSource(self.make_info_response());
+        let response = InteractionResponse::ChannelMessageWithSource(self.make_info_response(cx));
 
-        self.client
+        cx
+            .http()
             .interaction_callback(command.id(), command.token(), &response)
             .exec()
             .await?;
@@ -38,21 +32,19 @@ impl InfoCommand {
         Ok(())
     }
 
-    fn make_info_response(&self) -> CallbackData {
+    fn make_info_response(&self, cx: &Context) -> CallbackData {
         let content = format!("running kromer {} ({})", crate::VERSION, crate::GIT_HASH);
 
         let mut buttons = Vec::new();
 
-        if let Some(id) = self.client.application_id() {
-            buttons.push(Component::Button(Button {
-                style: ButtonStyle::Link,
-                label: Some(String::from("Invite")),
-                url: Some(crate::bot::invite_link(id)),
-                disabled: false,
-                custom_id: None,
-                emoji: None,
-            }));
-        }
+        buttons.push(Component::Button(Button {
+            style: ButtonStyle::Link,
+            label: Some(String::from("Invite")),
+            url: Some(crate::bot::invite_link(cx.application_id())),
+            disabled: false,
+            custom_id: None,
+            emoji: None,
+        }));
 
         buttons.push(Component::Button(Button {
             style: ButtonStyle::Link,
@@ -81,14 +73,14 @@ impl InfoCommand {
 
 impl_service! {
     impl Service for InfoCommand {
-        async fn handle(&self, ev: &Event) -> Result<(), Error> {
+        async fn handle(&self, cx: &Context, ev: &Event) -> Result<(), Error> {
             match ev {
                 Event::InteractionCreate(int) => match &int.0 {
                     Interaction::ApplicationCommand(cmd) => {
                         let args = Arguments::new(&*cmd);
 
                         if args.name() == "info" {
-                            return self.command(args).await;
+                            return self.command(cx, args).await;
                         }
                     }
                     _ => (),
